@@ -41,11 +41,20 @@ export function runEnvironmentHonestyTests(): TestResult[] {
     '1. index.css não possui media queries para prefers-color-scheme'
   );
 
-  // 2. Não existe color-scheme: dark
+  // 2. Não existe color-scheme: dark e define tokens formais de tema claro
   assert(
     !indexCssContent.includes('color-scheme: dark') &&
-    indexCssContent.includes('color-scheme: light'),
-    '2. index.css força estritamente color-scheme: light'
+    indexCssContent.includes('color-scheme: light') &&
+    indexCssContent.includes('--background: #f8fafc') &&
+    indexCssContent.includes('--surface: #ffffff') &&
+    indexCssContent.includes('--text-primary: #0f172a'),
+    '2. index.css força color-scheme: light e consolida tokens de superfície clara'
+  );
+
+  // 2b. Não aplica color-scheme: light !important universalmente sobre *
+  assert(
+    !indexCssContent.includes('*,') && !indexCssContent.includes('*::before'),
+    '2b. index.css não aplica color-scheme com !important sobre o seletor universal *'
   );
 
   // 3. Não existem estilos estruturais dark:* no código fonte

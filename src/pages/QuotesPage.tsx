@@ -25,6 +25,8 @@ import { Badge } from '../components/ui/Badge';
 import { Quote, QuoteStatus } from '../types/quote';
 import { useCommercial } from '../context/CommercialContext';
 import { useTenant } from '../context/TenantContext';
+import { useNotification } from '../context/NotificationContext';
+import { getEnvironmentCapabilities } from '../domain/environment-capabilities';
 import { QUOTE_STATUS_METADATA } from '../domain/quote-status';
 import { formatCentsToBRL } from '../domain/money';
 import { PdfExportService } from '../services/pdf-export.service';
@@ -37,6 +39,8 @@ interface QuotesPageProps {
 export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote }) => {
   const { quotes, downloadQuotePdf, sendQuoteViaWhatsApp } = useCommercial();
   const { currentCompany } = useTenant();
+  const { showNotice } = useNotification();
+  const capabilities = getEnvironmentCapabilities();
 
   const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,6 +92,14 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
   // Abertura do Modal de Envio por WhatsApp
   const handleOpenWhatsAppModal = (e: React.MouseEvent, quote: Quote) => {
     e.stopPropagation();
+    if (!capabilities.canUseWhatsApp) {
+      showNotice(
+        'WhatsApp Não Configurado',
+        'A integração oficial com o WhatsApp Business ainda não está configurada neste ambiente. Utilize o botão "Baixar PDF" para obter a proposta oficial em PDF.',
+        'info'
+      );
+      return;
+    }
     const rawPhone = quote.customerContact || '';
     setQuoteForWhatsApp(quote);
     setWpRecipientPhone(rawPhone);

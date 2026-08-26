@@ -2,40 +2,58 @@
 
 :root {
   color-scheme: light;
-  --background: #F8FAFC;
-  --foreground: #0F172A;
-}
 
-*,
-*::before,
-*::after {
-  color-scheme: light !important;
+  /* Superfícies e Fundos Estruturais */
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-secondary: #f1f5f9;
+  --surface-hover: #f8fafc;
+
+  /* Tipografia */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  /* Bordas e Divisórias */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* Ações e Cores da Marca */
+  --primary: #075cd6;
+  --primary-hover: #064fb8;
+  --primary-foreground: #ffffff;
+
+  /* Estados e Badges */
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
 }
 
 html {
-  color-scheme: light !important;
-  background-color: #F8FAFC !important;
-  color: #0F172A !important;
+  color-scheme: light;
+  background-color: var(--background);
+  color: var(--text-primary);
 }
 
 body {
-  color-scheme: light !important;
-  background-color: #F8FAFC !important;
-  color: #0F172A !important;
+  color-scheme: light;
+  background-color: var(--background);
+  color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
 }
 
-/* Force light background and foreground on root */
+/* Estrutura principal do React */
 #root {
-  background-color: #F8FAFC !important;
-  color: #0F172A !important;
+  color-scheme: light;
+  background-color: var(--background);
+  color: var(--text-primary);
   min-height: 100vh;
 }
 
-/* Forçar tema claro determinístico em todos os inputs nativos, selects, options, botões e modais */
+/* Formulários, selects, inputs e controles nativos */
 input,
 select,
 textarea,
@@ -43,24 +61,24 @@ button,
 option,
 optgroup,
 dialog {
-  color-scheme: light !important;
+  color-scheme: light;
 }
 
-/* Scrollbar estilizada em modo claro para todos os navegadores */
+/* Scrollbar estilizada em tons claros */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: var(--surface-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: var(--border-strong);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: var(--text-muted);
 }
