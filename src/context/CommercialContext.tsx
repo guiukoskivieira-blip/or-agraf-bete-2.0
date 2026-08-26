@@ -672,6 +672,9 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     const priceCents = data.priceCents !== undefined ? data.priceCents : (data.costPriceCents || data.salePriceCents || 0);
     const status: FinishingPriceStatus = data.priceStatus || (priceCents > 0 ? 'CONFIGURED' : data.isRequired ? 'FREE' : 'NOT_CONFIGURED');
 
+    const compatibleProductIds = Array.isArray(data.compatibleProductIds) ? data.compatibleProductIds : [];
+    const appliesToAllProducts = Boolean(data.appliesToAllProducts);
+
     const newFin: Finishing = {
       id: `fin_${tenantId}_${Date.now()}`,
       tenantId,
@@ -684,6 +687,8 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       salePriceCents: priceCents,
       priceStatus: status,
       defaultMarkupPercent: data.defaultMarkupPercent || 0,
+      compatibleProductIds,
+      appliesToAllProducts,
       compatibleProducts: data.compatibleProducts || [],
       isRequired: Boolean(data.isRequired),
       isDefaultSelected: Boolean(data.isDefaultSelected),
@@ -707,6 +712,8 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
           const basis = (data.pricingBasis || data.pricingMethod || f.pricingBasis || f.pricingMethod || 'PER_UNIT') as FinishingPricingBasis;
           const priceCents = data.priceCents !== undefined ? data.priceCents : (data.costPriceCents !== undefined ? data.costPriceCents : f.priceCents);
           const status = data.priceStatus || f.priceStatus || (priceCents > 0 ? 'CONFIGURED' : (data.isRequired ?? f.isRequired) ? 'FREE' : 'NOT_CONFIGURED');
+          const compatibleProductIds = Array.isArray(data.compatibleProductIds) ? data.compatibleProductIds : (f.compatibleProductIds || []);
+          const appliesToAllProducts = data.appliesToAllProducts !== undefined ? Boolean(data.appliesToAllProducts) : Boolean(f.appliesToAllProducts);
 
           updated = {
             ...f,
@@ -717,6 +724,8 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
             costPriceCents: priceCents,
             salePriceCents: priceCents,
             priceStatus: status,
+            compatibleProductIds,
+            appliesToAllProducts,
             updatedAt: now,
           };
           return updated;

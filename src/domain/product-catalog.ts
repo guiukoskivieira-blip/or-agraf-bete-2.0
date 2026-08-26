@@ -699,7 +699,7 @@ export function getInitialMaterialsTemplate(tenantId: string): Material[] {
 
 /**
  * Retorna os 21 Acabamentos oficiais para um tenant específico,
- * estruturados com base de cobrança explícita e status comercial de preço.
+ * estruturados com IDs estáveis de compatibilidade e status comercial de preço.
  */
 export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
   const timestamp = '2026-02-25T00:00:00.000Z';
@@ -711,6 +711,8 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
     isRequired: boolean;
     priceStatus: FinishingPriceStatus;
     priceCents: number;
+    compatibleProductIds: string[];
+    appliesToAllProducts?: boolean;
     compatibleProducts?: string[];
   }[] = [
     {
@@ -720,7 +722,15 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: true,
       priceStatus: 'FREE',
       priceCents: 0,
-      compatibleProducts: ['Cartão de visita', 'Flyer', 'Folder', 'Bloco de notas', 'Crachá', 'Tag'],
+      compatibleProductIds: [
+        `prod_${tenantId}_cartao_visita`,
+        `prod_${tenantId}_flyer`,
+        `prod_${tenantId}_panfleto`,
+        `prod_${tenantId}_folder`,
+        `prod_${tenantId}_cardapio`,
+        `prod_${tenantId}_cartaz`,
+      ],
+      compatibleProducts: ['Cartão de visita', 'Flyer', 'Panfleto', 'Folder', 'Cardápio', 'Cartaz'],
     },
     {
       name: 'Corte reto',
@@ -729,7 +739,12 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: true,
       priceStatus: 'FREE',
       priceCents: 0,
-      compatibleProducts: ['Placa em PS', 'Adesivo vinil'],
+      compatibleProductIds: [
+        `prod_${tenantId}_placa_pvc`,
+        `prod_${tenantId}_placa_acm`,
+        `prod_${tenantId}_adesivo_impresso`,
+      ],
+      compatibleProducts: ['Placa em PVC', 'Placa em ACM', 'Adesivo impresso'],
     },
     {
       name: 'Corte especial',
@@ -738,7 +753,13 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Adesivo vinil', 'Placa em PS'],
+      compatibleProductIds: [
+        `prod_${tenantId}_adesivo_impresso`,
+        `prod_${tenantId}_placa_pvc`,
+        `prod_${tenantId}_placa_acm`,
+        `prod_${tenantId}_cardapio`,
+      ],
+      compatibleProducts: ['Adesivo impresso', 'Placa em PVC', 'Placa em ACM', 'Cardápio'],
     },
     {
       name: 'Corte eletrônico',
@@ -747,7 +768,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Adesivo de recorte'],
+      compatibleProductIds: [
+        `prod_${tenantId}_adesivo_recorte`,
+        `prod_${tenantId}_adesivo_impresso`,
+      ],
+      compatibleProducts: ['Adesivo de recorte', 'Adesivo impresso'],
     },
     {
       name: 'Cantos arredondados',
@@ -756,7 +781,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Cartão de visita', 'Crachá', 'Tag'],
+      compatibleProductIds: [
+        `prod_${tenantId}_cartao_visita`,
+        `prod_${tenantId}_cardapio`,
+      ],
+      compatibleProducts: ['Cartão de visita', 'Cardápio'],
     },
     {
       name: 'Dobra',
@@ -765,7 +794,13 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Flyer', 'Folder'],
+      compatibleProductIds: [
+        `prod_${tenantId}_folder`,
+        `prod_${tenantId}_flyer`,
+        `prod_${tenantId}_panfleto`,
+        `prod_${tenantId}_cardapio`,
+      ],
+      compatibleProducts: ['Folder', 'Flyer', 'Panfleto', 'Cardápio'],
     },
     {
       name: 'Vinco',
@@ -774,7 +809,12 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Folder', 'Cartaz'],
+      compatibleProductIds: [
+        `prod_${tenantId}_folder`,
+        `prod_${tenantId}_cardapio`,
+        `prod_${tenantId}_cartaz`,
+      ],
+      compatibleProducts: ['Folder', 'Cardápio', 'Cartaz'],
     },
     {
       name: 'Furação',
@@ -783,7 +823,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Tag', 'Crachá'],
+      compatibleProductIds: [
+        `prod_${tenantId}_cartaz`,
+        `prod_${tenantId}_cardapio`,
+      ],
+      compatibleProducts: ['Cartaz', 'Cardápio'],
     },
     {
       name: 'Ilhós',
@@ -792,7 +836,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Banner em lona', 'Faixa em lona', 'Lona backlight'],
+      compatibleProductIds: [
+        `prod_${tenantId}_banner_lona`,
+        `prod_${tenantId}_faixa_lona`,
+      ],
+      compatibleProducts: ['Banner em lona', 'Faixa em lona'],
     },
     {
       name: 'Bastão e cordão',
@@ -801,6 +849,9 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
+      compatibleProductIds: [
+        `prod_${tenantId}_banner_lona`,
+      ],
       compatibleProducts: ['Banner em lona'],
     },
     {
@@ -810,6 +861,10 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
+      compatibleProductIds: [
+        `prod_${tenantId}_banner_lona`,
+        `prod_${tenantId}_faixa_lona`,
+      ],
       compatibleProducts: ['Banner em lona', 'Faixa em lona'],
     },
     {
@@ -819,7 +874,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Banner em lona', 'Lona backlight'],
+      compatibleProductIds: [
+        `prod_${tenantId}_banner_lona`,
+        `prod_${tenantId}_faixa_lona`,
+      ],
+      compatibleProducts: ['Banner em lona', 'Faixa em lona'],
     },
     {
       name: 'Laminação fosca',
@@ -828,7 +887,14 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Cartão de visita', 'Folder', 'Adesivo vinil'],
+      compatibleProductIds: [
+        `prod_${tenantId}_cartao_visita`,
+        `prod_${tenantId}_folder`,
+        `prod_${tenantId}_flyer`,
+        `prod_${tenantId}_adesivo_impresso`,
+        `prod_${tenantId}_cardapio`,
+      ],
+      compatibleProducts: ['Cartão de visita', 'Folder', 'Flyer', 'Adesivo impresso', 'Cardápio'],
     },
     {
       name: 'Laminação brilho',
@@ -837,7 +903,14 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Cartão de visita', 'Folder', 'Adesivo vinil'],
+      compatibleProductIds: [
+        `prod_${tenantId}_cartao_visita`,
+        `prod_${tenantId}_folder`,
+        `prod_${tenantId}_flyer`,
+        `prod_${tenantId}_adesivo_impresso`,
+        `prod_${tenantId}_cardapio`,
+      ],
+      compatibleProducts: ['Cartão de visita', 'Folder', 'Flyer', 'Adesivo impresso', 'Cardápio'],
     },
     {
       name: 'Verniz localizado',
@@ -846,7 +919,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Cartão de visita'],
+      compatibleProductIds: [
+        `prod_${tenantId}_cartao_visita`,
+        `prod_${tenantId}_folder`,
+      ],
+      compatibleProducts: ['Cartão de visita', 'Folder'],
     },
     {
       name: 'Fita dupla face',
@@ -855,7 +932,12 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Placa em PS'],
+      compatibleProductIds: [
+        `prod_${tenantId}_placa_pvc`,
+        `prod_${tenantId}_placa_acm`,
+        `prod_${tenantId}_cartaz`,
+      ],
+      compatibleProducts: ['Placa em PVC', 'Placa em ACM', 'Cartaz'],
     },
     {
       name: 'Encadernação',
@@ -864,7 +946,8 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Bloco de notas'],
+      compatibleProductIds: [], // Sem produtos vinculados no catálogo oficial atual
+      compatibleProducts: [],
     },
     {
       name: 'Aplicação',
@@ -873,7 +956,15 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Adesivo vinil', 'Placa em PS'],
+      compatibleProductIds: [
+        `prod_${tenantId}_adesivo_impresso`,
+        `prod_${tenantId}_adesivo_recorte`,
+        `prod_${tenantId}_placa_pvc`,
+        `prod_${tenantId}_placa_acm`,
+        `prod_${tenantId}_fachada`,
+        `prod_${tenantId}_plotagem_veiculo`,
+      ],
+      compatibleProducts: ['Adesivo impresso', 'Adesivo de recorte', 'Placa em PVC', 'Placa em ACM', 'Fachada', 'Plotagem de veículo'],
     },
     {
       name: 'Instalação',
@@ -882,7 +973,13 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Placa em PS', 'Banner em lona'],
+      compatibleProductIds: [
+        `prod_${tenantId}_placa_pvc`,
+        `prod_${tenantId}_placa_acm`,
+        `prod_${tenantId}_banner_lona`,
+        `prod_${tenantId}_fachada`,
+      ],
+      compatibleProducts: ['Placa em PVC', 'Placa em ACM', 'Banner em lona', 'Fachada'],
     },
     {
       name: 'Fundo branco',
@@ -891,7 +988,11 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: false,
       priceStatus: 'NOT_CONFIGURED',
       priceCents: 0,
-      compatibleProducts: ['Adesivo vinil'],
+      compatibleProductIds: [
+        `prod_${tenantId}_adesivo_impresso`,
+        `prod_${tenantId}_adesivo_recorte`,
+      ],
+      compatibleProducts: ['Adesivo impresso', 'Adesivo de recorte'],
     },
     {
       name: 'Costura',
@@ -900,6 +1001,9 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
       isRequired: true,
       priceStatus: 'FREE',
       priceCents: 0,
+      compatibleProductIds: [
+        `prod_${tenantId}_wind_banner`,
+      ],
       compatibleProducts: ['Wind banner'],
     },
   ];
@@ -917,6 +1021,8 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
     priceStatus: fin.priceStatus,
     isRequired: fin.isRequired,
     isDefaultSelected: fin.isRequired,
+    compatibleProductIds: fin.compatibleProductIds,
+    appliesToAllProducts: fin.appliesToAllProducts || false,
     compatibleProducts: fin.compatibleProducts,
     defaultMarkupPercent: 0,
     isActive: true,
@@ -924,6 +1030,77 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
     createdAt: timestamp,
     updatedAt: timestamp,
   }));
+}
+
+/**
+ * Função canônica de verificação de compatibilidade entre acabamento e produto
+ */
+export function isFinishingCompatibleWithProduct(
+  finishing: Finishing | undefined | null,
+  productId: string | undefined | null,
+  tenantId?: string
+): boolean {
+  if (!finishing || !productId) return false;
+  if (finishing.isActive === false) return false;
+  if (tenantId && finishing.tenantId && finishing.tenantId !== tenantId) return false;
+  if (finishing.appliesToAllProducts === true) return true;
+  if (Array.isArray(finishing.compatibleProductIds)) {
+    return finishing.compatibleProductIds.includes(productId);
+  }
+  return false;
+}
+
+/**
+ * Migração determinística de vínculos legados (por nomes) para IDs estáveis
+ */
+export function migrateLegacyFinishingCompatibleProductIds(
+  finishing: Partial<Finishing>,
+  tenantId: string
+): { compatibleProductIds: string[]; appliesToAllProducts: boolean } {
+  const legacyMap: Record<string, string> = {
+    'cartão de visita': `prod_${tenantId}_cartao_visita`,
+    'flyer': `prod_${tenantId}_flyer`,
+    'panfleto': `prod_${tenantId}_panfleto`,
+    'folder': `prod_${tenantId}_folder`,
+    'banner em lona': `prod_${tenantId}_banner_lona`,
+    'adesivo impresso': `prod_${tenantId}_adesivo_impresso`,
+    'adesivo de recorte': `prod_${tenantId}_adesivo_recorte`,
+    'placa em pvc': `prod_${tenantId}_placa_pvc`,
+    'placa em acm': `prod_${tenantId}_placa_acm`,
+    'fachada': `prod_${tenantId}_fachada`,
+    'plotagem de veículo': `prod_${tenantId}_plotagem_veiculo`,
+    'faixa em lona': `prod_${tenantId}_faixa_lona`,
+    'cardápio': `prod_${tenantId}_cardapio`,
+    'wind banner': `prod_${tenantId}_wind_banner`,
+    'cartaz': `prod_${tenantId}_cartaz`,
+    // Mapeamentos seguros auditados
+    'placa em ps': `prod_${tenantId}_placa_pvc`,
+    'adesivo vinil': `prod_${tenantId}_adesivo_impresso`,
+    // Referências órfãs intencionalmente descartadas:
+    // 'bloco de notas', 'crachá', 'tag', 'lona backlight'
+  };
+
+  const idSet = new Set<string>();
+
+  if (Array.isArray(finishing.compatibleProductIds) && finishing.compatibleProductIds.length > 0) {
+    finishing.compatibleProductIds.forEach(id => {
+      if (typeof id === 'string' && id.trim()) {
+        idSet.add(id.trim());
+      }
+    });
+  } else if (Array.isArray(finishing.compatibleProducts)) {
+    finishing.compatibleProducts.forEach(name => {
+      const normalized = name.trim().toLowerCase();
+      if (legacyMap[normalized]) {
+        idSet.add(legacyMap[normalized]);
+      }
+    });
+  }
+
+  return {
+    compatibleProductIds: Array.from(idSet),
+    appliesToAllProducts: Boolean(finishing.appliesToAllProducts),
+  };
 }
 
 export function initializeTenantMaterials(existingMaterials: Material[], tenantId: string): Material[] {
@@ -955,18 +1132,35 @@ export function initializeTenantFinishings(existingFinishings: Finishing[], tena
     const existing = existingMap.get(tmpl.name.toLowerCase());
     if (!existing) return tmpl;
 
+    const migration = migrateLegacyFinishingCompatibleProductIds(existing, tenantId);
+    const resolvedCompatibleIds =
+      migration.compatibleProductIds.length > 0
+        ? migration.compatibleProductIds
+        : (existing.compatibleProductIds && existing.compatibleProductIds.length > 0 ? existing.compatibleProductIds : tmpl.compatibleProductIds);
+
     return {
       ...tmpl,
       ...existing,
       pricingBasis: existing.pricingBasis || tmpl.pricingBasis,
       priceStatus: existing.priceStatus || (existing.costPriceCents && existing.costPriceCents > 0 ? 'CONFIGURED' : tmpl.priceStatus),
       priceCents: existing.priceCents !== undefined ? existing.priceCents : (existing.costPriceCents || tmpl.priceCents),
+      compatibleProductIds: resolvedCompatibleIds,
+      appliesToAllProducts: existing.appliesToAllProducts !== undefined ? existing.appliesToAllProducts : tmpl.appliesToAllProducts,
     };
   });
 
   // Mantém também acabamentos customizados criados pelo usuário
   const templateNames = new Set(templates.map(t => t.name.toLowerCase()));
-  const customUserFinishings = tenantExisting.filter(f => !templateNames.has(f.name.toLowerCase()));
+  const customUserFinishings = tenantExisting
+    .filter(f => !templateNames.has(f.name.toLowerCase()))
+    .map(f => {
+      const migration = migrateLegacyFinishingCompatibleProductIds(f, tenantId);
+      return {
+        ...f,
+        compatibleProductIds: f.compatibleProductIds || migration.compatibleProductIds,
+        appliesToAllProducts: Boolean(f.appliesToAllProducts),
+      };
+    });
 
   return [...merged, ...customUserFinishings];
 }

@@ -154,7 +154,9 @@ export interface Finishing {
   salePriceCents?: number;
   priceStatus: FinishingPriceStatus;
   defaultMarkupPercent?: number;
-  compatibleProducts?: string[]; // Nomes ou SKUs de produtos compatíveis
+  compatibleProductIds: string[]; // IDs canônicos dos produtos compatíveis
+  appliesToAllProducts?: boolean; // Se explicitamente compatível com todos os produtos
+  compatibleProducts?: string[]; // Deprecado: nomes de produtos mantidos apenas para histórico/legado
   isRequired?: boolean; // Se é operação técnica obrigatória padrão
   isDefaultSelected?: boolean; // Se deve ser selecionado automaticamente
   isActive: boolean;

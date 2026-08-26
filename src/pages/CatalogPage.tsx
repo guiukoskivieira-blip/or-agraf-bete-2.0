@@ -147,6 +147,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   // Modal de Acabamento
   const [isFinishingModalOpen, setIsFinishingModalOpen] = useState(false);
   const [editingFinishing, setEditingFinishing] = useState<Finishing | null>(null);
+  const [productSearchInModal, setProductSearchInModal] = useState('');
   const [finishingForm, setFinishingForm] = useState<{
     name: string;
     description: string;
@@ -155,7 +156,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     priceStr: string;
     isRequired: boolean;
     isDefaultSelected: boolean;
-    compatibleProductsText: string;
+    compatibleProductIds: string[];
+    appliesToAllProducts: boolean;
     notes: string;
   }>({
     name: '',
@@ -165,7 +167,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     priceStr: '0,00',
     isRequired: false,
     isDefaultSelected: false,
-    compatibleProductsText: '',
+    compatibleProductIds: [],
+    appliesToAllProducts: false,
     notes: '',
   });
 
@@ -404,6 +407,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   // ==========================================
   const handleOpenCreateFinishing = () => {
     setEditingFinishing(null);
+    setProductSearchInModal('');
     setFinishingForm({
       name: '',
       description: '',
@@ -412,7 +416,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       priceStr: '0,00',
       isRequired: false,
       isDefaultSelected: false,
-      compatibleProductsText: '',
+      compatibleProductIds: [],
+      appliesToAllProducts: false,
       notes: '',
     });
     setIsFinishingModalOpen(true);
@@ -420,6 +425,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const handleOpenEditFinishing = (f: Finishing) => {
     setEditingFinishing(f);
+    setProductSearchInModal('');
     const pType: 'charged' | 'free' | 'not_configured' =
       f.priceStatus === 'FREE'
         ? 'free'
@@ -435,7 +441,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       priceStr: ((f.priceCents || f.costPriceCents || 0) / 100).toFixed(2).replace('.', ','),
       isRequired: Boolean(f.isRequired),
       isDefaultSelected: Boolean(f.isDefaultSelected),
-      compatibleProductsText: f.compatibleProducts ? f.compatibleProducts.join(', ') : '',
+      compatibleProductIds: Array.isArray(f.compatibleProductIds) ? f.compatibleProductIds : [],
+      appliesToAllProducts: Boolean(f.appliesToAllProducts),
       notes: f.notes || '',
     });
     setIsFinishingModalOpen(true);
@@ -466,10 +473,15 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       priceCents = 0;
     }
 
-    const compatible = finishingForm.compatibleProductsText
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
+    const compatibleProductIds = finishingForm.appliesToAllProducts ? [] : finishingForm.compatibleProductIds;
+    const appliesToAllProducts = finishingForm.appliesToAllProducts;
+
+    // Deriva nomes dos produtos para histórico legível
+    const compatibleNames = appliesToAllProducts
+      ? ['Todos os produtos']
+      : compatibleProductIds
+          .map(id => products.find(p => p.id === id)?.name)
+          .filter((name): name is string => Boolean(name));
 
     if (editingFinishing) {
       updateFinishing(editingFinishing.id, {
@@ -483,7 +495,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         salePriceCents: priceCents,
         isRequired: finishingForm.isRequired,
         isDefaultSelected: finishingForm.isDefaultSelected,
-        compatibleProducts: compatible,
+        compatibleProductIds,
+        appliesToAllProducts,
+        compatibleProducts: compatibleNames,
         notes: finishingForm.notes.trim(),
       });
     } else {
@@ -498,7 +512,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         salePriceCents: priceCents,
         isRequired: finishingForm.isRequired,
         isDefaultSelected: finishingForm.isDefaultSelected,
-        compatibleProducts: compatible,
+        compatibleProductIds,
+        appliesToAllProducts,
+        compatibleProducts: compatibleNames,
         notes: finishingForm.notes.trim(),
       });
     }
@@ -928,10 +944,23 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-[11px] text-slate-600">
-                        {fin.compatibleProducts && fin.compatibleProducts.length > 0 ? (
-                          <div className="truncate max-w-[180px]">{fin.compatibleProducts.join(', ')}</div>
+                        {fin.appliesToAllProducts ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            Todos os produtos (Global)
+                          </span>
+                        ) : fin.compatibleProductIds && fin.compatibleProductIds.length > 0 ? (
+                          <div
+                            className="truncate max-w-[220px]"
+                            title={fin.compatibleProductIds
+                              .map(id => products.find(p => p.id === id)?.name || 'Produto indisponível')
+                              .join(', ')}
+                          >
+                            {fin.compatibleProductIds
+                              .map(id => products.find(p => p.id === id)?.name || 'Produto indisponível')
+                              .join(', ')}
+                          </div>
                         ) : (
-                          <span className="text-slate-400">Todos os produtos</span>
+                          <span className="text-slate-400 italic text-[10px]">Nenhum produto compatível</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4">
@@ -1392,12 +1421,133 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 </label>
               </div>
 
-              <Input
-                label="Produtos Compatíveis (Opcional, separados por vírgula)"
-                value={finishingForm.compatibleProductsText}
-                onChange={e => setFinishingForm({ ...finishingForm, compatibleProductsText: e.target.value })}
-                placeholder="Ex: Cartão de visita, Folder, Banner em lona"
-              />
+              {/* Seletor Múltiplo de Produtos Compatíveis */}
+              <div className="space-y-2 pt-1 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold uppercase tracking-wider text-slate-700 text-[11px]">
+                    Produtos Compatíveis
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={finishingForm.appliesToAllProducts}
+                      onChange={e =>
+                        setFinishingForm({
+                          ...finishingForm,
+                          appliesToAllProducts: e.target.checked,
+                          compatibleProductIds: e.target.checked ? [] : finishingForm.compatibleProductIds,
+                        })
+                      }
+                      className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
+                    />
+                    <span className="font-semibold text-slate-700">Aplicar a todos (Global)</span>
+                  </label>
+                </div>
+
+                {!finishingForm.appliesToAllProducts ? (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={productSearchInModal}
+                          onChange={e => setProductSearchInModal(e.target.value)}
+                          placeholder="Pesquisar por nome ou SKU..."
+                          className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white text-slate-900 focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allActiveIds = products.filter(p => p.isActive !== false).map(p => p.id);
+                          setFinishingForm({ ...finishingForm, compatibleProductIds: allActiveIds });
+                        }}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
+                      >
+                        Todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFinishingForm({ ...finishingForm, compatibleProductIds: [] })}
+                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 whitespace-nowrap"
+                      >
+                        Limpar
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] font-medium text-slate-600 flex justify-between">
+                      <span>
+                        {finishingForm.compatibleProductIds.length > 0
+                          ? `${finishingForm.compatibleProductIds.length} produto(s) selecionado(s)`
+                          : 'Nenhum produto compatível selecionado'}
+                      </span>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                      {products
+                        .filter(p => p.isActive !== false)
+                        .filter(p => {
+                          if (!productSearchInModal.trim()) return true;
+                          const term = productSearchInModal.toLowerCase();
+                          return p.name.toLowerCase().includes(term) || p.sku.toLowerCase().includes(term);
+                        })
+                        .map(prod => {
+                          const isSelected = finishingForm.compatibleProductIds.includes(prod.id);
+                          return (
+                            <label
+                              key={prod.id}
+                              className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'bg-blue-50/70 border-blue-200 text-blue-900 font-semibold'
+                                  : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100/60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={e => {
+                                    if (e.target.checked) {
+                                      setFinishingForm({
+                                        ...finishingForm,
+                                        compatibleProductIds: [...finishingForm.compatibleProductIds, prod.id],
+                                      });
+                                    } else {
+                                      setFinishingForm({
+                                        ...finishingForm,
+                                        compatibleProductIds: finishingForm.compatibleProductIds.filter(id => id !== prod.id),
+                                      });
+                                    }
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
+                                />
+                                <div>
+                                  <div className="text-xs">{prod.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">{prod.sku}</div>
+                                </div>
+                              </div>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">
+                                {prod.pricingMode === 'LOT'
+                                  ? `Lote (${prod.lotSize || 1000} un.)`
+                                  : prod.pricingMode === 'SQUARE_METER'
+                                  ? 'm²'
+                                  : prod.pricingMode === 'LINEAR_METER'
+                                  ? 'm lin.'
+                                  : 'Un.'}
+                              </span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 text-blue-900 text-xs flex items-center gap-2">
+                    <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Este acabamento estará disponível para todos os produtos do catálogo.</span>
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <Button type="button" variant="secondary" onClick={() => setIsFinishingModalOpen(false)}>

@@ -59,6 +59,7 @@ import { User, hasUserPermission } from '../types/tenant';
 import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
 import { calculateInstallments } from '../domain/financial-calculations';
 import { calculateItemPricing, inferPricingMode, formatItemPricingDescription } from '../domain/pricing-engine';
+import { isFinishingCompatibleWithProduct } from '../domain/product-catalog';
 
 interface NewQuotePageProps {
   onBack: () => void;
@@ -143,6 +144,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
   const { currentCompany, currentUser, companyUsers } = useTenant();
   const { products, finishings: catalogFinishings, customers, createQuote } = useCommercial();
   const { showNotice } = useNotification();
+  const tenantId = currentCompany?.id || 'emp_alphaprint_01';
 
   // ==========================================
   // 1. DADOS DO CLIENTE
@@ -320,6 +322,11 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           const matchedCatalog = catalogFinishings.find(
             cf => cf.name.toLowerCase() === lf.finishingName.toLowerCase() || cf.id === lf.finishingId
           );
+
+          // Verifica compatibilidade canônica por ID com o produto
+          if (matchedCatalog && !isFinishingCompatibleWithProduct(matchedCatalog, product.id, tenantId) && !lf.isRequired) {
+            return;
+          }
 
           const basis: FinishingPricingBasis =
             matchedCatalog?.pricingBasis || (matchedCatalog?.pricingMethod as any) || 'PER_UNIT';
@@ -566,6 +573,16 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
         if (it.finishings.some(f => f.name.toLowerCase() === finishing.name.toLowerCase())) {
           showNotice('Acabamento Existente', `O acabamento "${finishing.name}" já está na lista deste item.`, 'info');
+          return it;
+        }
+
+        // Bloqueio de acabamento incompatível com o produto do item
+        if (it.productId && !isFinishingCompatibleWithProduct(finishing, it.productId, tenantId)) {
+          showNotice(
+            'Acabamento Incompatível',
+            `O acabamento "${finishing.name}" não é compatível com o produto "${it.productName}".`,
+            'warning'
+          );
           return it;
         }
 
@@ -902,6 +919,21 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           'warning'
         );
         return;
+      }
+
+      // Bloqueio de acabamento incompatível com o produto do item
+      if (it.productId) {
+        for (const f of it.finishings.filter(fin => fin.selected)) {
+          const catalogFin = catalogFinishings.find(cf => cf.id === f.finishingId || cf.name.toLowerCase() === f.name.toLowerCase());
+          if (catalogFin && !isFinishingCompatibleWithProduct(catalogFin, it.productId, tenantId) && !f.isRequired) {
+            showNotice(
+              'Acabamento Incompatível',
+              `O acabamento "${f.name}" no item "${it.productName}" não é compatível com este produto. Revise os acabamentos antes de salvar.`,
+              'warning'
+            );
+            return;
+          }
+        }
       }
     }
 
@@ -1440,6 +1472,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                             .filter(
                               cf =>
                                 cf.isActive &&
+                                (!item.productId || isFinishingCompatibleWithProduct(cf, item.productId, tenantId)) &&
                                 !item.finishings.some(
                                   f => f.name.toLowerCase() === cf.name.toLowerCase()
                                 )

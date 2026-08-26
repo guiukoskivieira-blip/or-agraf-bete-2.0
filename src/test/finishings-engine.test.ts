@@ -368,6 +368,7 @@ export function runFinishingsEngineTests(): TestResult[] {
     pricingBasis: 'PER_SQUARE_METER',
     priceStatus: 'CONFIGURED',
     priceCents: 2000, // subiu para R$ 20,00
+    compatibleProductIds: [],
     isActive: true,
     createdAt: '',
     updatedAt: '',
