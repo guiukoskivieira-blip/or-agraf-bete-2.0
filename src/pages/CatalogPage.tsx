@@ -38,8 +38,11 @@ import {
   Finishing,
   PRODUCT_CATEGORIES,
   CalculationUnit,
+  PricingMode,
+  PRICING_MODES,
 } from '../types/product';
 import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
+import { inferPricingMode } from '../domain/pricing-engine';
 
 export type CatalogTab = 'products' | 'supplies' | 'finishes';
 
@@ -98,6 +101,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     name: string;
     sku: string;
     category: string;
+    pricingMode: PricingMode;
+    lotSizeStr: string;
     calculationUnit: CalculationUnit;
     salePriceStr: string;
     minSalePriceStr: string;
@@ -108,6 +113,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     name: '',
     sku: '',
     category: 'prints',
+    pricingMode: 'UNIT',
+    lotSizeStr: '1000',
     calculationUnit: 'unit',
     salePriceStr: '0,00',
     minSalePriceStr: '0,00',
@@ -215,6 +222,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       name: '',
       sku: `SKU-${Date.now().toString().slice(-4)}`,
       category: 'prints',
+      pricingMode: 'UNIT',
+      lotSizeStr: '1000',
       calculationUnit: 'unit',
       salePriceStr: '0,00',
       minSalePriceStr: '0,00',
@@ -227,10 +236,13 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const handleOpenEditProduct = (p: Product) => {
     setEditingProduct(p);
+    const mode = p.pricingMode || inferPricingMode(p);
     setProductForm({
       name: p.name,
       sku: p.sku,
       category: p.category,
+      pricingMode: mode,
+      lotSizeStr: p.lotSize ? String(p.lotSize) : '1000',
       calculationUnit: p.calculationUnit,
       salePriceStr: (p.salePriceCents / 100).toFixed(2).replace('.', ','),
       minSalePriceStr: ((p.minSalePriceCents || 0) / 100).toFixed(2).replace('.', ','),
@@ -257,11 +269,30 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     const salePriceCents = parseBRLToCents(productForm.salePriceStr);
     const minSalePriceCents = parseBRLToCents(productForm.minSalePriceStr);
 
+    let lotSize: number | undefined;
+    if (productForm.pricingMode === 'LOT') {
+      const parsedLot = parseInt(productForm.lotSizeStr, 10);
+      if (!parsedLot || parsedLot <= 0) {
+        showNotice('Lote Inválido', 'Informe um tamanho de lote válido (maior que zero).', 'warning');
+        return;
+      }
+      lotSize = parsedLot;
+    }
+
+    const mappedCalcUnit: CalculationUnit =
+      productForm.pricingMode === 'SQUARE_METER'
+        ? 'm2'
+        : productForm.pricingMode === 'LINEAR_METER'
+        ? 'linear_meter'
+        : 'unit';
+
     const payload: Partial<Product> = {
       name: productForm.name.trim(),
       sku: productForm.sku.trim(),
       category: productForm.category,
-      calculationUnit: productForm.calculationUnit,
+      pricingMode: productForm.pricingMode,
+      lotSize,
+      calculationUnit: mappedCalcUnit,
       salePriceCents,
       minSalePriceCents,
       hasPriceConfigured: salePriceCents > 0,
@@ -575,14 +606,16 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   <th className="py-3 px-4">Produto & SKU</th>
                   <th className="py-3 px-4">Categoria</th>
                   <th className="py-3 px-4">Substrato Padrão</th>
-                  <th className="py-3 px-4">Preço / Unidade</th>
+                  <th className="py-3 px-4">Preço de Venda</th>
                   <th className="py-3 px-4">Acabamentos Vinculados</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {filteredProducts.map(product => (
+                {filteredProducts.map(product => {
+                  const mode = product.pricingMode || inferPricingMode(product);
+                  return (
                   <tr key={product.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-900 text-xs">{product.name}</div>
@@ -600,8 +633,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                           <span className="font-bold text-slate-900 text-xs">
                             {formatCentsToBRL(product.salePriceCents)}
                           </span>
-                          <span className="text-[10px] text-slate-400 block">
-                            /{product.calculationUnit === 'm2' ? 'm²' : product.calculationUnit === 'linear_meter' ? 'm. lin.' : 'un.'}
+                          <span className="text-[10px] text-slate-500 font-semibold block">
+                            {mode === 'LOT'
+                              ? `/lote de ${new Intl.NumberFormat('pt-BR').format(product.lotSize || 1000)} un.`
+                              : mode === 'SQUARE_METER'
+                              ? '/m²'
+                              : mode === 'LINEAR_METER'
+                              ? '/m linear'
+                              : '/un.'}
                           </span>
                         </div>
                       ) : (
@@ -673,7 +712,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -910,29 +950,63 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
                 <div>
                   <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Unidade de Cálculo
+                    Modalidade de Preço
                   </label>
                   <select
-                    value={productForm.calculationUnit}
-                    onChange={e => setProductForm({ ...productForm, calculationUnit: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    value={productForm.pricingMode}
+                    onChange={e => setProductForm({ ...productForm, pricingMode: e.target.value as PricingMode })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 font-medium"
                   >
-                    <option value="unit">Por Unidade / Tabela</option>
-                    <option value="m2">Por Metro Quadrado (m²)</option>
-                    <option value="linear_meter">Por Metro Linear</option>
+                    {PRICING_MODES.map(mode => (
+                      <option key={mode.id} value={mode.id}>
+                        {mode.label} ({mode.shortSuffix})
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
+              {productForm.pricingMode === 'LOT' && (
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                    <Info className="w-4 h-4 text-blue-600" />
+                    <span>Configuração de Lote / Tiragem</span>
+                  </div>
+                  <p className="text-[11px] text-blue-700">
+                    O preço cadastrado será o valor cobrado por cada lote fechado de unidades (ex: R$ 70,00 por lote de 1.000 un.).
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <Input
+                      label="Tamanho do Lote (unidades) *"
+                      type="number"
+                      min="1"
+                      value={productForm.lotSizeStr}
+                      onChange={e => setProductForm({ ...productForm, lotSizeStr: e.target.value })}
+                      placeholder="1000"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
-                  label="Preço de Venda Sugerido (R$)"
+                  label={
+                    productForm.pricingMode === 'LOT'
+                      ? `Preço por Lote de ${productForm.lotSizeStr || '1.000'} un. (R$) *`
+                      : productForm.pricingMode === 'SQUARE_METER'
+                      ? 'Preço por m² (R$) *'
+                      : productForm.pricingMode === 'LINEAR_METER'
+                      ? 'Preço por Metro Linear (R$) *'
+                      : 'Preço por Unidade (R$) *'
+                  }
                   value={productForm.salePriceStr}
                   onChange={e => setProductForm({ ...productForm, salePriceStr: e.target.value })}
                   placeholder="0,00"
+                  required
                 />
                 <Input
-                  label="Preço Mínimo de Venda (R$)"
+                  label="Preço Mínimo de Faturamento (R$)"
                   value={productForm.minSalePriceStr}
                   onChange={e => setProductForm({ ...productForm, minSalePriceStr: e.target.value })}
                   placeholder="0,00"

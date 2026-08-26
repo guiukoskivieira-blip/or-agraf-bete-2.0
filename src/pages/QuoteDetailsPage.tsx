@@ -36,6 +36,7 @@ import { useNotification } from '../context/NotificationContext';
 import { hasUserPermission } from '../types/tenant';
 import { QUOTE_STATUS_METADATA } from '../domain/quote-status';
 import { formatCentsToBRL } from '../domain/money';
+import { formatItemPricingDescription } from '../domain/pricing-engine';
 import { PdfExportService } from '../services/pdf-export.service';
 import { WhatsAppIntegrationService } from '../services/whatsapp-integration.service';
 import { Quote } from '../types/quote';
@@ -249,7 +250,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
 
                     <div className="text-right font-mono">
                       <div className="text-xs text-slate-500">
-                        {item.quantity} un. x {formatCentsToBRL(item.unitPriceCents)}
+                        {item.pricingSummary || formatItemPricingDescription(item)}
                       </div>
                       <div className="text-base font-black text-slate-900">
                         {formatCentsToBRL(item.totalPriceCents)}

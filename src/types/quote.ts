@@ -14,6 +14,7 @@
  */
 
 import { ArteFlowSyncStatus } from './arteflow';
+import { PricingMode, FinishingPricingBasis } from './product';
 
 export type QuoteStatus = 
   | 'awaiting_customer' // Aguardando cliente
@@ -69,6 +70,7 @@ export interface QuoteFinancialTerms {
 export interface QuoteItemFinishing {
   finishingId: string;
   name: string;
+  pricingBasis?: FinishingPricingBasis;
   unitPriceCents: number;
   totalPriceCents: number;
   isRequired?: boolean;
@@ -81,16 +83,22 @@ export interface QuoteItem {
   id: string;
   productId?: string; // Vinculado a um produto do catálogo ou item avulso
   productName: string;
-  quantity: number;
+  pricingMode?: PricingMode; // Modalidade determinística ('UNIT' | 'LOT' | 'SQUARE_METER' | 'LINEAR_METER')
+  quantity: number; // Quantidade solicitada (unidades ou peças)
+  lotSize?: number; // Tamanho do lote quando LOT (ex: 1000)
+  billedQuantity?: number; // Quantidade cobrada (ex: 1 lote, 2 lotes, 3 peças, 1.5 m², 6.0 m linear)
   widthMm?: number;
   heightMm?: number;
-  areaM2?: number;
+  areaM2?: number; // Área em m²
+  linearMeters?: number; // Comprimento em metros lineares
+  basePriceCents?: number; // Preço base configurado (por unidade, por lote, por m² ou por metro linear)
   materialName?: string;
   finishings: QuoteItemFinishing[];
   unitCostCents: number;
-  unitPriceCents: number;
-  totalPriceCents: number;
+  unitPriceCents: number; // Preço unitário/calculado (mantido para compatibilidade e cálculos)
+  totalPriceCents: number; // Total final exato do item com acabamentos em centavos inteiros
   notes?: string;
+  pricingSummary?: string; // Resumo textual legível (ex: "1.000 unidades • 1 lote de 1.000 × R$ 70,00 = R$ 70,00")
 }
 
 export interface QuoteVersion {

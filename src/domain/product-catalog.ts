@@ -1,37 +1,45 @@
 /**
  * @file product-catalog.ts
- * @description Catálogo Inicial com os 15 Produtos Oficiais do OrçaGraf, Vínculos de Acabamentos e Regras de Precificação
+ * @description Catálogo Inicial com os 15 Produtos Oficiais do OrçaGraf, Vínculos de Acabamentos e Modalidades de Precificação
  * @project OrçaGraf
  * 
- * 15 PRODUTOS INICIAIS OFICIAIS:
- * 1. Cartão de visita (unit)
- * 2. Flyer (unit)
- * 3. Panfleto (unit)
- * 4. Folder (unit)
- * 5. Cardápio (unit)
- * 6. Banner em lona (m2)
- * 7. Faixa em lona (linear_meter)
- * 8. Adesivo impresso (m2)
- * 9. Adesivo de recorte (m2)
- * 10. Placa em PVC (m2)
- * 11. Placa em ACM (m2)
- * 12. Wind banner (unit)
- * 13. Fachada (m2)
- * 14. Plotagem de veículo (m2)
- * 15. Cartaz (unit)
+ * 15 PRODUTOS CLASSIFICADOS POR MODALIDADE:
+ * - LOTE/TIRAGEM (LOT):
+ *   1. Cartão de visita (1.000 un.)
+ *   2. Flyer (1.000 un.)
+ *   3. Panfleto (1.000 un.)
+ *   4. Folder (1.000 un.)
+ * 
+ * - METRO QUADRADO (SQUARE_METER):
+ *   5. Banner em lona (m²)
+ *   6. Adesivo impresso (m²)
+ *   7. Adesivo de recorte (m²)
+ *   8. Placa em PVC (m²)
+ *   9. Placa em ACM (m²)
+ *   10. Fachada (m²)
+ *   11. Plotagem de veículo (m²)
+ * 
+ * - METRO LINEAR (LINEAR_METER):
+ *   12. Faixa em lona (m linear)
+ * 
+ * - UNIDADE (UNIT):
+ *   13. Cardápio (un.)
+ *   14. Wind banner (un.)
+ *   15. Cartaz (un.)
  */
 
-import { Product, CalculationUnit, Material, Finishing, ProductFinishingLink } from '../types/product';
+import { Product, CalculationUnit, Material, Finishing, ProductFinishingLink, PricingMode } from '../types/product';
+import { calculateItemPricing, inferPricingMode } from './pricing-engine';
 
 /**
  * Retorna os 15 modelos de produtos oficiais para um tenant específico,
- * incluindo a configuração inicial de acabamentos vinculados.
+ * incluindo a configuração de modalidade determinística de precificação.
  */
 export function getInitialProductsTemplate(tenantId: string): Product[] {
   const timestamp = '2026-02-25T00:00:00.000Z';
 
   return [
-    // 1. Cartão de visita (Unitário)
+    // 1. Cartão de visita (LOTE DE 1.000 UNIDADES)
     {
       id: `prod_${tenantId}_cartao_visita`,
       tenantId,
@@ -39,6 +47,8 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Cartão de visita',
       category: 'prints',
       shortDescription: 'Cartão de visita profissional para identificação comercial e networking.',
+      pricingMode: 'LOT',
+      lotSize: 1000,
       calculationUnit: 'unit',
       defaultWidthMm: 90,
       defaultHeightMm: 50,
@@ -55,18 +65,18 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
         { finishingName: 'Cantos arredondados', isRequired: false, isDefaultSelected: false, displayOrder: 5, isActive: true },
       ],
       productionDays: 2,
-      baseCostCents: 3500, // R$ 35,00
+      baseCostCents: 3500, // R$ 35,00 por lote
       markupPercent: 100,
-      salePriceCents: 7000, // R$ 70,00
+      salePriceCents: 7000, // R$ 70,00 por lote de 1.000 unidades
       minSalePriceCents: 5000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Padrão 9x5cm. Fechamento de arquivo em CMYK com 3mm de sangria e margem interna de segurança.',
+      internalNotes: 'Padrão 9x5cm. Preço cadastrado para tiragem/lote de 1.000 un.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 2. Flyer (Unitário)
+    // 2. Flyer (LOTE DE 1.000 UNIDADES)
     {
       id: `prod_${tenantId}_flyer`,
       tenantId,
@@ -74,6 +84,8 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Flyer',
       category: 'prints',
       shortDescription: 'Folheto promocional ágil para divulgação de eventos, ofertas e serviços.',
+      pricingMode: 'LOT',
+      lotSize: 1000,
       calculationUnit: 'unit',
       defaultWidthMm: 100,
       defaultHeightMm: 140,
@@ -87,18 +99,18 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
         { finishingName: 'Dobra', isRequired: false, isDefaultSelected: false, displayOrder: 2, isActive: true },
       ],
       productionDays: 2,
-      baseCostCents: 4000, // R$ 40,00
+      baseCostCents: 4000, // R$ 40,00 por lote
       markupPercent: 80,
-      salePriceCents: 7200, // R$ 72,00
+      salePriceCents: 7200, // R$ 72,00 por lote de 1.000 unidades
       minSalePriceCents: 5000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Formato 10x14cm (1/4 de sulfite). Ideal para ações rápidas de distribuição.',
+      internalNotes: 'Formato 10x14cm. Preço cadastrado para lote de 1.000 un.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 3. Panfleto (Unitário)
+    // 3. Panfleto (LOTE DE 1.000 UNIDADES)
     {
       id: `prod_${tenantId}_panfleto`,
       tenantId,
@@ -106,6 +118,8 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Panfleto',
       category: 'prints',
       shortDescription: 'Panfleto em papel couché para distribuição em massa e campanhas locais.',
+      pricingMode: 'LOT',
+      lotSize: 1000,
       calculationUnit: 'unit',
       defaultWidthMm: 150,
       defaultHeightMm: 210,
@@ -118,18 +132,18 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
         { finishingName: 'Refile', isRequired: true, isDefaultSelected: true, displayOrder: 1, isActive: true },
       ],
       productionDays: 2,
-      baseCostCents: 5500, // R$ 55,00
+      baseCostCents: 5500, // R$ 55,00 por lote
       markupPercent: 80,
-      salePriceCents: 9900, // R$ 99,00
+      salePriceCents: 9900, // R$ 99,00 por lote de 1.000 unidades
       minSalePriceCents: 7000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Formato A5 (15x21cm). Conferir marcas de corte e margem de sangra.',
+      internalNotes: 'Formato A5 (15x21cm). Preço cadastrado para lote de 1.000 un.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 4. Folder (Unitário com dobra)
+    // 4. Folder (LOTE DE 1.000 UNIDADES)
     {
       id: `prod_${tenantId}_folder`,
       tenantId,
@@ -137,10 +151,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Folder',
       category: 'prints',
       shortDescription: 'Folder institucional ou de produtos com vincos e dobras comerciais.',
+      pricingMode: 'LOT',
+      lotSize: 1000,
       calculationUnit: 'unit',
       defaultWidthMm: 210,
       defaultHeightMm: 297,
-      defaultQuantity: 500,
+      defaultQuantity: 1000,
       defaultMaterial: 'Papel couchê 150 g',
       availableMaterials: ['Papel couchê 150 g', 'Papel couchê 250 g', 'Papel couchê 300 g'],
       defaultFinishing: 'Dobra',
@@ -151,18 +167,18 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
         { finishingName: 'Dobra', isRequired: true, isDefaultSelected: true, displayOrder: 3, isActive: true },
       ],
       productionDays: 3,
-      baseCostCents: 8000, // R$ 80,00
+      baseCostCents: 8000, // R$ 80,00 por lote
       markupPercent: 85,
-      salePriceCents: 14800, // R$ 148,00
+      salePriceCents: 14800, // R$ 148,00 por lote de 1.000 unidades
       minSalePriceCents: 10000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'A4 aberto (21x29,7cm). Vinco técnico obrigatório para gramaturas acima de 150g.',
+      internalNotes: 'A4 aberto (21x29,7cm). Preço cadastrado para lote de 1.000 un.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 5. Cardápio (Unitário)
+    // 5. Cardápio (UNIDADE)
     {
       id: `prod_${tenantId}_cardapio`,
       tenantId,
@@ -170,6 +186,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Cardápio',
       category: 'prints',
       shortDescription: 'Cardápio para restaurantes e lanchonetes com acabamento lavável de alta resistência.',
+      pricingMode: 'UNIT',
       calculationUnit: 'unit',
       defaultWidthMm: 210,
       defaultHeightMm: 297,
@@ -192,12 +209,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 1800,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Formato A4. Acabamento lavável e proteção UV.',
+      internalNotes: 'Formato A4. Precificação cobrada por unidade.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 6. Banner em lona (Área em m²)
+    // 6. Banner em lona (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_banner_lona`,
       tenantId,
@@ -205,6 +222,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Banner em lona',
       category: 'visual_comm',
       shortDescription: 'Banner impresso em lona de alta resolução com acabamento para suspensão.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 800, // 0.80m
       defaultHeightMm: 1200, // 1.20m
@@ -226,12 +244,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 4500,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Cálculo automático: Área = Largura (m) × Altura (m). Valor = Área × Preço/m² × Quantidade.',
+      internalNotes: 'Cálculo por área total: Área = Largura (m) × Altura (m) × Qtd.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 7. Faixa em lona (Metro Linear)
+    // 7. Faixa em lona (METRO LINEAR)
     {
       id: `prod_${tenantId}_faixa_lona`,
       tenantId,
@@ -239,9 +257,10 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Faixa em lona',
       category: 'visual_comm',
       shortDescription: 'Faixa horizontal em lona com reforço lateral e acabamento para amarração rápida.',
+      pricingMode: 'LINEAR_METER',
       calculationUnit: 'linear_meter',
       defaultWidthMm: 3000, // 3 metros de comprimento
-      defaultHeightMm: 700, // 0.70m de altura
+      defaultHeightMm: 700, // 0.70m de altura técnica
       defaultQuantity: 1,
       defaultMaterial: 'Lona frontlight 440 g',
       availableMaterials: ['Lona frontlight 440 g', 'Lona blackout'],
@@ -259,12 +278,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 6000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Calculado por comprimento (metro linear). Valor = Comprimento (m) × Preço/m linear × Quantidade.',
+      internalNotes: 'Cálculo por comprimento: Comprimento total = Comprimento (m) × Qtd.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 8. Adesivo impresso (Área em m²)
+    // 8. Adesivo impresso (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_adesivo_impresso`,
       tenantId,
@@ -272,6 +291,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Adesivo impresso',
       category: 'stickers',
       shortDescription: 'Adesivo vinil com impressão digital colorida de alta resolução em plotter.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 1000, // 1m
       defaultHeightMm: 1000, // 1m
@@ -294,12 +314,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 3000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Impressão digital eco-solvente ou UV. Resistente à água.',
+      internalNotes: 'Impressão digital vinil adesivo. Precificado por m².',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 9. Adesivo de recorte (Área em m²)
+    // 9. Adesivo de recorte (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_adesivo_recorte`,
       tenantId,
@@ -307,6 +327,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Adesivo de recorte',
       category: 'stickers',
       shortDescription: 'Vinil colorido vazado recortado em plotter eletrônica com máscara de aplicação.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 1000,
       defaultHeightMm: 1000,
@@ -326,12 +347,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 4000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Vetor obrigatório. Precificação calculada por área total ou unitária.',
+      internalNotes: 'Vetor obrigatório. Precificado por m².',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 10. Placa em PVC (Área em m²)
+    // 10. Placa em PVC (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_placa_pvc`,
       tenantId,
@@ -339,6 +360,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Placa em PVC',
       category: 'boards_facades',
       shortDescription: 'Placa rígida em PVC expandido com aplicação frontal de vinil adesivo.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 1000,
       defaultHeightMm: 1000,
@@ -361,12 +383,12 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 5000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Leve, resistente à umidade, excelente acabamento para sinalização.',
+      internalNotes: 'Leve, resistente à umidade, precificado por m².',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 11. Placa em ACM (Área em m²)
+    // 11. Placa em ACM (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_placa_acm`,
       tenantId,
@@ -374,6 +396,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Placa em ACM',
       category: 'boards_facades',
       shortDescription: 'Placa de Alumínio Composto (ACM 3mm) de altíssima durabilidade e estabilidade climática.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 1000,
       defaultHeightMm: 1000,
@@ -401,7 +424,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       updatedAt: timestamp,
     },
 
-    // 12. Wind banner (Unitário)
+    // 12. Wind banner (UNIDADE)
     {
       id: `prod_${tenantId}_wind_banner`,
       tenantId,
@@ -409,6 +432,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Wind banner',
       category: 'signage',
       shortDescription: 'Kit completo de wind banner com haste articulada, tecido sublimado e base de apoio.',
+      pricingMode: 'UNIT',
       calculationUnit: 'unit',
       defaultWidthMm: 700,
       defaultHeightMm: 2200,
@@ -425,16 +449,16 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       productionDays: 4,
       baseCostCents: 11000, // R$ 110,00 por kit
       markupPercent: 100,
-      salePriceCents: 22000, // R$ 220,00 por kit
+      salePriceCents: 22000, // R$ 220,00 por kit/unidade
       minSalePriceCents: 18000,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Impressão digital por sublimação com cores vivas e lavável.',
+      internalNotes: 'Kit completo. Precificado por unidade.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
 
-    // 13. Fachada (Área em m²)
+    // 13. Fachada (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_fachada`,
       tenantId,
@@ -442,6 +466,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Fachada',
       category: 'boards_facades',
       shortDescription: 'Estrutura metálica com revestimento em ACM e comunicação visual completa para fachadas.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 4000, // 4 metros
       defaultHeightMm: 1200, // 1.20 metros
@@ -468,7 +493,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       updatedAt: timestamp,
     },
 
-    // 14. Plotagem de veículo (Área em m²)
+    // 14. Plotagem de veículo (METRO QUADRADO - m²)
     {
       id: `prod_${tenantId}_plotagem_veiculo`,
       tenantId,
@@ -476,6 +501,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Plotagem de veículo',
       category: 'visual_comm',
       shortDescription: 'Envelopamento parcial ou total de veículos e frotas comerciais com vinil cast automotivo.',
+      pricingMode: 'SQUARE_METER',
       calculationUnit: 'm2',
       defaultWidthMm: 1000,
       defaultHeightMm: 1000,
@@ -501,7 +527,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       updatedAt: timestamp,
     },
 
-    // 15. Cartaz (Unitário)
+    // 15. Cartaz (UNIDADE)
     {
       id: `prod_${tenantId}_cartaz`,
       tenantId,
@@ -509,6 +535,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       name: 'Cartaz',
       category: 'prints',
       shortDescription: 'Cartaz promocional para vitrines, paredes, portas e murais informativos.',
+      pricingMode: 'UNIT',
       calculationUnit: 'unit',
       defaultWidthMm: 297, // A3
       defaultHeightMm: 420,
@@ -530,7 +557,7 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
       minSalePriceCents: 400,
       hasPriceConfigured: true,
       isActive: true,
-      internalNotes: 'Formato A3 (30x42cm). Impressão digital colorida de alto contraste.',
+      internalNotes: 'Formato A3 (30x42cm). Precificado por unidade.',
       createdAt: timestamp,
       updatedAt: timestamp,
     },
@@ -538,20 +565,17 @@ export function getInitialProductsTemplate(tenantId: string): Product[] {
 }
 
 /**
- * Calcula o preço unitário e total de um item gráfico a partir da unidade e medidas informadas
- * 
- * Regras Obrigatórias:
- * - Todos os cálculos monetários retornam em centavos inteiros (BRL).
- * - Área em m² = (largura_mm / 1000) * (altura_mm / 1000)
- * - Metro linear = (largura_mm / 1000) ou (comprimento_m)
- * - Respeita o valor mínimo configurado (se aplicável)
+ * Função Legada de Cálculo com Redirecionamento para o Motor Central
  */
 export interface ProductPriceCalculationParams {
-  calculationUnit: CalculationUnit;
-  salePriceCents: number; // Preço de venda configurado na unidade (ex: por m², por metro linear ou unitário)
+  pricingMode?: PricingMode;
+  calculationUnit?: CalculationUnit;
+  salePriceCents: number;
   quantity: number;
+  lotSize?: number;
   widthMm?: number;
   heightMm?: number;
+  lengthMeters?: number;
   minSalePriceCents?: number;
 }
 
@@ -564,92 +588,38 @@ export interface ProductPriceCalculationResult {
 }
 
 export function calculateProductPrice(params: ProductPriceCalculationParams): ProductPriceCalculationResult {
-  const {
-    calculationUnit,
-    salePriceCents,
-    quantity,
-    widthMm,
-    heightMm,
-    minSalePriceCents = 0,
-  } = params;
+  const mode = params.pricingMode || inferPricingMode({
+    calculationUnit: params.calculationUnit,
+    lotSize: params.lotSize,
+  });
 
-  const safeQty = Math.max(1, Math.round(quantity || 1));
-  const safeSalePrice = Math.max(0, Math.round(salePriceCents || 0));
+  const res = calculateItemPricing({
+    pricingMode: mode,
+    salePriceCents: params.salePriceCents,
+    quantity: params.quantity,
+    lotSize: params.lotSize,
+    widthMm: params.widthMm,
+    heightMm: params.heightMm,
+    lengthMeters: params.lengthMeters,
+    minSalePriceCents: params.minSalePriceCents,
+  });
 
-  if (safeSalePrice <= 0) {
-    return {
-      unitPriceCents: 0,
-      totalPriceCents: 0,
-      hasPrice: false,
-    };
-  }
-
-  // 1. Cálculo por Área (Metro quadrado - m²)
-  if (calculationUnit === 'm2') {
-    const widthM = Math.max(0.01, (widthMm || 1000) / 1000);
-    const heightM = Math.max(0.01, (heightMm || 1000) / 1000);
-    const areaM2 = widthM * heightM;
-
-    // Preço de 1 unidade com essa área
-    const singlePieceCalculatedCents = Math.round(areaM2 * safeSalePrice);
-    const unitPriceCents = Math.max(minSalePriceCents, singlePieceCalculatedCents);
-    const totalPriceCents = unitPriceCents * safeQty;
-
-    return {
-      unitPriceCents,
-      totalPriceCents,
-      areaM2,
-      hasPrice: true,
-    };
-  }
-
-  // 2. Cálculo por Centímetro Quadrado (cm²)
-  if (calculationUnit === 'cm2') {
-    const widthCm = Math.max(1, (widthMm || 100) / 10);
-    const heightCm = Math.max(1, (heightMm || 100) / 10);
-    const areaCm2 = widthCm * heightCm;
-
-    const singlePieceCalculatedCents = Math.round(areaCm2 * safeSalePrice);
-    const unitPriceCents = Math.max(minSalePriceCents, singlePieceCalculatedCents);
-    const totalPriceCents = unitPriceCents * safeQty;
-
-    return {
-      unitPriceCents,
-      totalPriceCents,
-      areaM2: areaCm2 / 10000,
-      hasPrice: true,
-    };
-  }
-
-  // 3. Cálculo por Metro Linear (linear_meter)
-  if (calculationUnit === 'linear_meter') {
-    const lengthM = Math.max(0.1, (widthMm || 1000) / 1000);
-    const singlePieceCalculatedCents = Math.round(lengthM * safeSalePrice);
-    const unitPriceCents = Math.max(minSalePriceCents, singlePieceCalculatedCents);
-    const totalPriceCents = unitPriceCents * safeQty;
-
-    return {
-      unitPriceCents,
-      totalPriceCents,
-      linearMeters: lengthM,
-      hasPrice: true,
-    };
-  }
-
-  // 4. Cálculo Unitário, Pacote ou Serviço
-  const unitPriceCents = Math.max(minSalePriceCents, safeSalePrice);
-  const totalPriceCents = unitPriceCents * safeQty;
+  const singlePieceArea = (params.widthMm && params.heightMm)
+    ? (params.widthMm / 1000) * (params.heightMm / 1000)
+    : res.areaM2;
 
   return {
-    unitPriceCents,
-    totalPriceCents,
-    hasPrice: true,
+    unitPriceCents: res.unitPriceEquivalentCents,
+    totalPriceCents: res.totalItemCents,
+    areaM2: singlePieceArea,
+    linearMeters: res.linearMeters,
+    hasPrice: res.basePriceCents > 0,
   };
 }
 
 /**
  * Garante a inicialização idempotente dos 15 produtos para uma empresa,
- * evitando duplicações caso já existam produtos com mesmo SKU ou ID.
+ * com migração segura de modalidade de preço e tamanho de lote.
  */
 export function initializeTenantProducts(existingProducts: Product[], tenantId: string): Product[] {
   const templates = getInitialProductsTemplate(tenantId);
@@ -659,23 +629,27 @@ export function initializeTenantProducts(existingProducts: Product[], tenantId: 
     return [...existingProducts, ...templates];
   }
 
-  // Se já existem alguns produtos, mescla preservando existentes e adicionando faltantes por SKU
-  const existingSkus = new Set(tenantExisting.map(p => p.sku));
-  const newToAdd = templates.filter(tmpl => !existingSkus.has(tmpl.sku));
-
-  // Atualiza produtos existentes que não tinham linkedFinishings preenchido
+  // Atualiza produtos existentes que não tinham pricingMode ou lotSize preenchidos
   const updatedExisting = existingProducts.map(p => {
-    if (p.tenantId === tenantId && (!p.linkedFinishings || p.linkedFinishings.length === 0)) {
+    if (p.tenantId === tenantId) {
       const template = templates.find(t => t.sku === p.sku || t.name.toLowerCase() === p.name.toLowerCase());
-      if (template?.linkedFinishings) {
-        return {
-          ...p,
-          linkedFinishings: template.linkedFinishings,
-        };
-      }
+      const inferredMode = template?.pricingMode || inferPricingMode(p);
+      const lotSize = p.lotSize || template?.lotSize || (inferredMode === 'LOT' ? 1000 : undefined);
+
+      return {
+        ...p,
+        pricingMode: p.pricingMode || inferredMode,
+        lotSize,
+        linkedFinishings: (p.linkedFinishings && p.linkedFinishings.length > 0)
+          ? p.linkedFinishings
+          : template?.linkedFinishings,
+      };
     }
     return p;
   });
+
+  const existingSkus = new Set(tenantExisting.map(p => p.sku));
+  const newToAdd = templates.filter(tmpl => !existingSkus.has(tmpl.sku));
 
   return [...updatedExisting, ...newToAdd];
 }
@@ -716,7 +690,7 @@ export function getInitialMaterialsTemplate(tenantId: string): Material[] {
     name: mat.name,
     category: mat.category,
     unit: mat.unit,
-    costPriceCents: 0, // Zero e pendente de configuração conforme regra
+    costPriceCents: 0,
     isActive: true,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -729,28 +703,28 @@ export function getInitialMaterialsTemplate(tenantId: string): Material[] {
 export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
   const timestamp = '2026-02-25T00:00:00.000Z';
 
-  const rawFinishings: { name: string; pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' }[] = [
-    { name: 'Refile', pricingMethod: 'unit' },
-    { name: 'Corte reto', pricingMethod: 'unit' },
-    { name: 'Corte especial', pricingMethod: 'unit' },
-    { name: 'Corte eletrônico', pricingMethod: 'area_m2' },
-    { name: 'Cantos arredondados', pricingMethod: 'unit' },
-    { name: 'Dobra', pricingMethod: 'unit' },
-    { name: 'Vinco', pricingMethod: 'unit' },
-    { name: 'Furação', pricingMethod: 'unit' },
-    { name: 'Ilhós', pricingMethod: 'unit' },
-    { name: 'Bastão e cordão', pricingMethod: 'unit' },
-    { name: 'Bainha', pricingMethod: 'unit' },
-    { name: 'Solda de lona', pricingMethod: 'unit' },
-    { name: 'Laminação fosca', pricingMethod: 'area_m2' },
-    { name: 'Laminação brilho', pricingMethod: 'area_m2' },
-    { name: 'Verniz localizado', pricingMethod: 'unit' },
-    { name: 'Fita dupla face', pricingMethod: 'unit' },
-    { name: 'Encadernação', pricingMethod: 'unit' },
-    { name: 'Aplicação', pricingMethod: 'area_m2' },
-    { name: 'Instalação', pricingMethod: 'fixed' },
-    { name: 'Fundo branco', pricingMethod: 'area_m2' },
-    { name: 'Costura', pricingMethod: 'unit' },
+  const rawFinishings: { name: string; pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter' | 'lot'; pricingBasis: 'fixed' | 'unit' | 'lot' | 'area_m2' | 'linear_meter' }[] = [
+    { name: 'Refile', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Corte reto', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Corte especial', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Corte eletrônico', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
+    { name: 'Cantos arredondados', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Dobra', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Vinco', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Furação', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Ilhós', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Bastão e cordão', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Bainha', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Solda de lona', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Laminação fosca', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
+    { name: 'Laminação brilho', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
+    { name: 'Verniz localizado', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Fita dupla face', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Encadernação', pricingMethod: 'unit', pricingBasis: 'unit' },
+    { name: 'Aplicação', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
+    { name: 'Instalação', pricingMethod: 'fixed', pricingBasis: 'fixed' },
+    { name: 'Fundo branco', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
+    { name: 'Costura', pricingMethod: 'unit', pricingBasis: 'unit' },
   ];
 
   return rawFinishings.map((fin, idx) => ({
@@ -758,7 +732,8 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
     tenantId,
     name: fin.name,
     pricingMethod: fin.pricingMethod,
-    costPriceCents: 0, // Zero e pendente de configuração conforme regra
+    pricingBasis: fin.pricingBasis,
+    costPriceCents: 0,
     defaultMarkupPercent: 0,
     isActive: true,
     createdAt: timestamp,
@@ -766,10 +741,6 @@ export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
   }));
 }
 
-/**
- * Garante a inicialização idempotente dos 21 insumos para uma empresa,
- * evitando duplicações caso já existam insumos com o mesmo nome.
- */
 export function initializeTenantMaterials(existingMaterials: Material[], tenantId: string): Material[] {
   const templates = getInitialMaterialsTemplate(tenantId);
   const tenantExisting = existingMaterials.filter(m => m.tenantId === tenantId);
@@ -784,10 +755,6 @@ export function initializeTenantMaterials(existingMaterials: Material[], tenantI
   return [...existingMaterials, ...newToAdd];
 }
 
-/**
- * Garante a inicialização idempotente dos 21 acabamentos para uma empresa,
- * evitando duplicações caso já existam acabamentos com o mesmo nome.
- */
 export function initializeTenantFinishings(existingFinishings: Finishing[], tenantId: string): Finishing[] {
   const templates = getInitialFinishingsTemplate(tenantId);
   const tenantExisting = existingFinishings.filter(f => f.tenantId === tenantId);

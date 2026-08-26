@@ -18,6 +18,15 @@ export type ProductCategory =
   | 'signage'           // Sinalização
   | 'custom_services';  // Serviços personalizados
 
+export type PricingMode = 'UNIT' | 'LOT' | 'SQUARE_METER' | 'LINEAR_METER';
+
+export const PRICING_MODES: { id: PricingMode; label: string; shortSuffix: string; description: string }[] = [
+  { id: 'UNIT', label: 'Por Unidade', shortSuffix: '/un.', description: 'Cobrança por peça individual (ex: Wind banner, Cardápio, Cartaz)' },
+  { id: 'LOT', label: 'Por Lote / Tiragem', shortSuffix: '/lote', description: 'Cobrança por tiragem/lote de unidades (ex: Cartão de visita, Flyer, Panfleto, Folder)' },
+  { id: 'SQUARE_METER', label: 'Por Metro Quadrado (m²)', shortSuffix: '/m²', description: 'Cobrança por área calculada L × A (ex: Banner, Adesivo, Placa, Fachada)' },
+  { id: 'LINEAR_METER', label: 'Por Metro Linear', shortSuffix: '/m linear', description: 'Cobrança por comprimento em metros (ex: Faixa em lona)' },
+];
+
 export type CalculationUnit =
   | 'unit'          // Unidade
   | 'm2'            // Metro quadrado
@@ -72,7 +81,9 @@ export interface Product {
   name: string; // Nome comercial do produto
   category: ProductCategory;
   shortDescription: string; // Descrição curta
-  calculationUnit: CalculationUnit; // Unidade de cálculo
+  pricingMode: PricingMode; // Modalidade determinística de precificação (UNIT | LOT | SQUARE_METER | LINEAR_METER)
+  lotSize?: number; // Tamanho do lote de tiragem quando pricingMode === 'LOT' (ex: 1000)
+  calculationUnit: CalculationUnit; // Unidade de cálculo (mantido para retrocompatibilidade)
   
   // Dimensões padrão (em milímetros para precisão ou metros)
   defaultWidthMm?: number; // Largura em mm (ex: 90 para 9cm, 1000 para 1m)
@@ -92,7 +103,7 @@ export interface Product {
   // Precificação (Valores em Centavos BRL)
   baseCostCents: number; // Custo base interno (nunca exibido ao cliente)
   markupPercent: number; // Margem de lucro em % (ex: 100 = 100%)
-  salePriceCents: number; // Preço de venda configurado (unitário, por m² ou por metro linear)
+  salePriceCents: number; // Preço de venda configurado (unitário, por lote, por m² ou por metro linear)
   minSalePriceCents: number; // Valor mínimo de venda/faturamento do item
   hasPriceConfigured: boolean; // Flag se possui preço válido cadastrado
   
@@ -119,11 +130,14 @@ export interface Material {
   updatedAt: string;
 }
 
+export type FinishingPricingBasis = 'fixed' | 'unit' | 'lot' | 'area_m2' | 'linear_meter';
+
 export interface Finishing {
   id: string;
   tenantId: string;
   name: string;
-  pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter';
+  pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter' | 'lot';
+  pricingBasis?: FinishingPricingBasis;
   costPriceCents: number;
   salePriceCents?: number;
   defaultMarkupPercent: number;

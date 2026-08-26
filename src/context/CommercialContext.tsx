@@ -53,7 +53,11 @@ const INITIAL_QUOTES: Quote[] = [
         id: 'item_101',
         productId: 'prod_emp_alphaprint_01_cartao_visita',
         productName: 'Cartão de Visita Couché 300g Laminação Fosca',
+        pricingMode: 'LOT',
         quantity: 1000,
+        lotSize: 1000,
+        billedQuantity: 1,
+        basePriceCents: 7000,
         unitCostCents: 3500,
         unitPriceCents: 8500,
         totalPriceCents: 8500,
@@ -62,20 +66,25 @@ const INITIAL_QUOTES: Quote[] = [
           {
             finishingId: 'f_bopp',
             name: 'Laminação Fosca BOPP',
+            pricingBasis: 'lot',
             unitPriceCents: 1500,
             totalPriceCents: 1500,
           },
         ],
         notes: 'Refile reto padrão 9x5cm',
+        pricingSummary: '1.000 unidades • 1 lote de 1.000 × R$ 85,00 = R$ 85,00',
       },
       {
         id: 'item_102',
         productId: 'prod_emp_alphaprint_01_banner_lona',
         productName: 'Banner em Lona Frontlight com Bastão e Corda',
+        pricingMode: 'SQUARE_METER',
         quantity: 2,
         widthMm: 1000,
         heightMm: 1500,
-        areaM2: 1.5,
+        areaM2: 3.0,
+        billedQuantity: 3.0,
+        basePriceCents: 7000,
         unitCostCents: 4500,
         unitPriceCents: 9000,
         totalPriceCents: 18000,
@@ -84,10 +93,12 @@ const INITIAL_QUOTES: Quote[] = [
           {
             finishingId: 'f_bastao',
             name: 'Bastão de Madeira com Ponteiras e Cordão',
+            pricingBasis: 'unit',
             unitPriceCents: 1000,
             totalPriceCents: 2000,
           },
         ],
+        pricingSummary: '2 pç(s) 1.00×1.50m (3.00 m²) × R$ 70,00/m² + acabamentos = R$ 180,00',
       },
     ],
     subtotalCents: 26500,
@@ -428,6 +439,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   // Criação de Produto no Catálogo
   const createProduct = (data: Partial<Product>): Product => {
     const now = new Date().toISOString();
+    const mode = data.pricingMode || (data.calculationUnit === 'm2' || data.calculationUnit === 'cm2' ? 'SQUARE_METER' : data.calculationUnit === 'linear_meter' ? 'LINEAR_METER' : data.calculationUnit === 'pack' ? 'LOT' : 'UNIT');
     const newProduct: Product = {
       id: `prod_${tenantId}_${Date.now()}`,
       tenantId,
@@ -435,6 +447,8 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       name: data.name?.trim() || 'Novo Produto Gráfico',
       category: data.category || 'prints',
       shortDescription: data.shortDescription?.trim() || '',
+      pricingMode: mode,
+      lotSize: data.lotSize || (mode === 'LOT' ? 1000 : undefined),
       calculationUnit: data.calculationUnit || 'unit',
       defaultWidthMm: data.defaultWidthMm,
       defaultHeightMm: data.defaultHeightMm,

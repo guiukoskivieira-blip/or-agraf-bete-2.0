@@ -50,11 +50,14 @@ import {
   CalculationUnit,
   PRODUCT_CATEGORIES,
   Finishing,
+  PricingMode,
+  PRICING_MODES,
+  FinishingPricingBasis,
 } from '../types/product';
 import { User, hasUserPermission } from '../types/tenant';
 import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
 import { calculateInstallments } from '../domain/financial-calculations';
-import { calculateProductPrice } from '../domain/product-catalog';
+import { calculateItemPricing, inferPricingMode, formatItemPricingDescription } from '../domain/pricing-engine';
 
 interface NewQuotePageProps {
   onBack: () => void;
@@ -64,6 +67,7 @@ interface NewQuotePageProps {
 export interface FormQuoteItemFinishing {
   finishingId: string;
   name: string;
+  pricingBasis?: FinishingPricingBasis;
   unitPriceCents: number;
   totalPriceCents: number;
   isRequired: boolean;
@@ -80,18 +84,25 @@ interface FormQuoteItem {
   isCustom: boolean;
   productName: string;
   category?: string;
+  pricingMode: PricingMode;
+  lotSize?: number;
+  billedQuantity?: number;
   calculationUnit: CalculationUnit;
   quantity: number;
   widthMm?: number;
   heightMm?: number;
+  lengthMeters?: number;
   areaM2?: number;
+  linearMeters?: number;
   materialName: string;
   availableMaterials: string[];
   finishings: FormQuoteItemFinishing[];
   unitCostCents: number;
+  basePriceCents: number;
   unitPriceCents: number;
   unitPriceStr: string;
   totalPriceCents: number;
+  pricingSummary?: string;
   hasPriceConfigured: boolean;
   notes?: string;
 }
@@ -313,8 +324,9 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           list.push({
             finishingId: lf.finishingId || `fin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
             name: lf.finishingName,
+            pricingBasis: matchedCatalog?.pricingBasis || (matchedCatalog?.pricingMethod as any) || 'unit',
             unitPriceCents: unitPrice,
-            totalPriceCents: unitPrice * currentQty,
+            totalPriceCents: 0,
             isRequired: isReq,
             isOptional: !isReq,
             selected: isSelected,
@@ -328,40 +340,95 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
     return list;
   };
 
-  const createItemFromProduct = (product: Product): FormQuoteItem => {
-    const qty = product.defaultQuantity || 1;
-    const calc = calculateProductPrice({
-      calculationUnit: product.calculationUnit,
-      salePriceCents: product.salePriceCents,
-      quantity: qty,
-      widthMm: product.defaultWidthMm,
-      heightMm: product.defaultHeightMm,
-      minSalePriceCents: product.minSalePriceCents,
+  const recalculateFormQuoteItem = (item: FormQuoteItem): FormQuoteItem => {
+    const activeFinishings = (item.finishings || [])
+      .filter(f => f.selected)
+      .map(f => ({
+        finishingId: f.finishingId,
+        name: f.name,
+        pricingBasis: f.pricingBasis,
+        unitPriceCents: f.unitPriceCents,
+        isRequired: f.isRequired,
+        isOptional: f.isOptional,
+      }));
+
+    const pricingRes = calculateItemPricing({
+      pricingMode: item.pricingMode || 'UNIT',
+      salePriceCents: item.basePriceCents,
+      quantity: item.quantity,
+      lotSize: item.lotSize,
+      widthMm: item.widthMm,
+      heightMm: item.heightMm,
+      lengthMeters: item.lengthMeters,
+      finishings: activeFinishings,
     });
 
-    const finishings = buildFinishingsForProduct(product, qty);
+    const updatedFinishings = (item.finishings || []).map(f => {
+      if (!f.selected) {
+        return { ...f, totalPriceCents: 0 };
+      }
+      const calcFin = pricingRes.calculatedFinishings.find(
+        cf => cf.finishingId === f.finishingId || cf.name.toLowerCase() === f.name.toLowerCase()
+      );
+      return {
+        ...f,
+        totalPriceCents: calcFin ? calcFin.totalPriceCents : 0,
+      };
+    });
 
     return {
+      ...item,
+      pricingMode: pricingRes.pricingMode,
+      lotSize: pricingRes.lotSize,
+      billedQuantity: pricingRes.billedQuantity,
+      areaM2: pricingRes.areaM2,
+      linearMeters: pricingRes.linearMeters,
+      basePriceCents: pricingRes.basePriceCents,
+      unitPriceCents: pricingRes.unitPriceEquivalentCents,
+      unitPriceStr: (pricingRes.basePriceCents / 100).toFixed(2).replace('.', ','),
+      totalPriceCents: pricingRes.totalItemCents,
+      finishings: updatedFinishings,
+      pricingSummary: pricingRes.pricingSummary,
+      hasPriceConfigured: pricingRes.basePriceCents > 0,
+    };
+  };
+
+  const createItemFromProduct = (product: Product): FormQuoteItem => {
+    const mode = product.pricingMode || inferPricingMode(product);
+    const qty = product.defaultQuantity || (mode === 'LOT' ? 1000 : 1);
+    const finishings = buildFinishingsForProduct(product, qty);
+
+    let defaultLengthM: number | undefined;
+    if (mode === 'LINEAR_METER') {
+      defaultLengthM = product.defaultWidthMm ? product.defaultWidthMm / 1000 : 1;
+    }
+
+    const initialItem: FormQuoteItem = {
       id: `it_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       productId: product.id,
       isCustom: false,
       productName: product.name,
       category: product.category,
+      pricingMode: mode,
+      lotSize: product.lotSize || (mode === 'LOT' ? 1000 : undefined),
       calculationUnit: product.calculationUnit,
       quantity: qty,
       widthMm: product.defaultWidthMm,
       heightMm: product.defaultHeightMm,
-      areaM2: calc.areaM2,
+      lengthMeters: defaultLengthM,
       materialName: product.defaultMaterial || '',
       availableMaterials: product.availableMaterials || (product.defaultMaterial ? [product.defaultMaterial] : []),
       finishings,
       unitCostCents: product.baseCostCents,
-      unitPriceCents: calc.unitPriceCents,
-      unitPriceStr: (calc.unitPriceCents / 100).toFixed(2).replace('.', ','),
-      totalPriceCents: calc.totalPriceCents,
+      basePriceCents: product.salePriceCents,
+      unitPriceCents: product.salePriceCents,
+      unitPriceStr: (product.salePriceCents / 100).toFixed(2).replace('.', ','),
+      totalPriceCents: 0,
       hasPriceConfigured: product.hasPriceConfigured,
       notes: '',
     };
+
+    return recalculateFormQuoteItem(initialItem);
   };
 
   // Inicializa o primeiro item com o primeiro produto ativo do catálogo ou personalizado
@@ -389,14 +456,17 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       id: `it_custom_${Date.now()}`,
       isCustom: true,
       productName: '',
+      pricingMode: 'UNIT',
+      lotSize: 1000,
       calculationUnit: 'unit',
       quantity: 1,
       materialName: '',
       availableMaterials: [],
       finishings: [],
       unitCostCents: 0,
+      basePriceCents: 0,
       unitPriceCents: 0,
-      unitPriceStr: '',
+      unitPriceStr: '0,00',
       totalPriceCents: 0,
       hasPriceConfigured: false,
       notes: '',
@@ -457,7 +527,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           return fin;
         });
 
-        return { ...it, finishings: updatedFinishings };
+        return recalculateFormQuoteItem({ ...it, finishings: updatedFinishings });
       })
     );
   };
@@ -476,8 +546,9 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
         const newFin: FormQuoteItemFinishing = {
           finishingId: finishing.id,
           name: finishing.name,
+          pricingBasis: finishing.pricingBasis || (finishing.pricingMethod as any) || 'unit',
           unitPriceCents: finishing.costPriceCents || 0,
-          totalPriceCents: (finishing.costPriceCents || 0) * it.quantity,
+          totalPriceCents: 0,
           isRequired: false,
           isOptional: true,
           selected: true,
@@ -485,7 +556,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           hasPriceConfigured: (finishing.costPriceCents || 0) > 0,
         };
 
-        return { ...it, finishings: [...it.finishings, newFin] };
+        return recalculateFormQuoteItem({ ...it, finishings: [...it.finishings, newFin] });
       })
     );
   };
@@ -500,43 +571,26 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
         if (field === 'unitPriceStr') {
           const parsedCents = parseBRLToCents(value);
-          updated.unitPriceCents = parsedCents;
-          updated.totalPriceCents = parsedCents * updated.quantity;
-          updated.hasPriceConfigured = parsedCents > 0;
-          return updated;
-        }
-
-        if (field === 'quantity' || field === 'widthMm' || field === 'heightMm') {
-          const qty = field === 'quantity' ? Math.max(1, Number(value) || 1) : item.quantity;
-          const w = field === 'widthMm' ? Number(value) || undefined : item.widthMm;
-          const h = field === 'heightMm' ? Number(value) || undefined : item.heightMm;
-
-          const linkedProduct = products.find(p => p.id === item.productId);
-          if (linkedProduct && linkedProduct.hasPriceConfigured) {
-            const calc = calculateProductPrice({
-              calculationUnit: item.calculationUnit,
-              salePriceCents: linkedProduct.salePriceCents,
-              quantity: qty,
-              widthMm: w,
-              heightMm: h,
-              minSalePriceCents: linkedProduct.minSalePriceCents,
-            });
-            updated.quantity = qty;
-            updated.widthMm = w;
-            updated.heightMm = h;
-            updated.areaM2 = calc.areaM2;
-            updated.unitPriceCents = calc.unitPriceCents;
-            updated.unitPriceStr = (calc.unitPriceCents / 100).toFixed(2).replace('.', ',');
-            updated.totalPriceCents = calc.totalPriceCents;
-            return updated;
-          } else {
-            updated.quantity = qty;
-            updated.totalPriceCents = updated.unitPriceCents * qty;
-            return updated;
+          updated.basePriceCents = parsedCents;
+          updated.unitPriceStr = value;
+        } else if (field === 'quantity') {
+          updated.quantity = Math.max(1, parseInt(value, 10) || 1);
+        } else if (field === 'widthMm') {
+          updated.widthMm = value !== '' ? Number(value) : undefined;
+        } else if (field === 'heightMm') {
+          updated.heightMm = value !== '' ? Number(value) : undefined;
+        } else if (field === 'lengthMeters') {
+          updated.lengthMeters = value !== '' ? Number(value) : undefined;
+        } else if (field === 'lotSize') {
+          updated.lotSize = Math.max(1, parseInt(value, 10) || 1000);
+        } else if (field === 'pricingMode') {
+          updated.pricingMode = value as PricingMode;
+          if (value === 'LOT' && !updated.lotSize) {
+            updated.lotSize = 1000;
           }
         }
 
-        return updated;
+        return recalculateFormQuoteItem(updated);
       })
     );
   };
@@ -767,19 +821,43 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       return;
     }
 
-    const invalidItem = items.find(it => !it.productName.trim() || it.quantity <= 0);
-    if (invalidItem) {
-      showNotice('Item Incompleto', 'Preencha a descrição e quantidade de todos os itens.', 'warning');
-      return;
+    // Validações estritas por modalidade de precificação
+    for (const it of items) {
+      if (!it.productName.trim()) {
+        showNotice('Item Incompleto', 'Preencha a descrição de todos os itens.', 'warning');
+        return;
+      }
+      if (!it.quantity || it.quantity <= 0 || isNaN(it.quantity)) {
+        showNotice('Quantidade Inválida', `Informe uma quantidade válida e maior que zero para "${it.productName}".`, 'warning');
+        return;
+      }
+      if (it.pricingMode === 'LOT' && (!it.lotSize || it.lotSize <= 0)) {
+        showNotice('Lote Inválido', `O tamanho do lote para "${it.productName}" deve ser maior que zero.`, 'warning');
+        return;
+      }
+      if (it.pricingMode === 'SQUARE_METER') {
+        if (!it.widthMm || it.widthMm <= 0 || !it.heightMm || it.heightMm <= 0) {
+          showNotice('Dimensões Inválidas', `Informe largura e altura válidas (maiores que zero) para "${it.productName}".`, 'warning');
+          return;
+        }
+      }
+      if (it.pricingMode === 'LINEAR_METER') {
+        const len = it.lengthMeters || (it.widthMm ? it.widthMm / 1000 : 0);
+        if (len <= 0) {
+          showNotice('Comprimento Inválido', `Informe um comprimento válido para "${it.productName}".`, 'warning');
+          return;
+        }
+      }
     }
 
-    // Converte os acabamentos selecionados de cada item
+    // Converte os itens e acabamentos selecionados de cada item preservando o snapshot
     const formattedItems = items.map(it => {
       const selectedFinishings: QuoteItemFinishing[] = it.finishings
         .filter(f => f.selected)
         .map(f => ({
           finishingId: f.finishingId,
           name: f.name,
+          pricingBasis: f.pricingBasis,
           unitPriceCents: f.unitPriceCents || 0,
           totalPriceCents: f.totalPriceCents || 0,
           isRequired: f.isRequired,
@@ -792,15 +870,22 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
         id: it.id,
         productId: it.productId,
         productName: it.productName,
+        pricingMode: it.pricingMode,
         quantity: it.quantity,
+        lotSize: it.lotSize,
+        billedQuantity: it.billedQuantity,
         widthMm: it.widthMm,
         heightMm: it.heightMm,
+        lengthMeters: it.lengthMeters,
         areaM2: it.areaM2,
+        linearMeters: it.linearMeters,
+        basePriceCents: it.basePriceCents,
         materialName: it.materialName,
         finishings: selectedFinishings,
-        unitCostCents: it.unitCostCents,
+        unitCostCents: it.unitCostCents || 0,
         unitPriceCents: it.unitPriceCents,
         totalPriceCents: it.totalPriceCents,
+        pricingSummary: it.pricingSummary,
         notes: it.notes,
       };
     });
@@ -1044,7 +1129,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
         <div className="space-y-4">
           {items.map((item, index) => {
-            const isAreaUnit = item.calculationUnit === 'm2';
+            const mode = item.pricingMode || 'UNIT';
 
             return (
               <div
@@ -1060,17 +1145,38 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
                     <div className="flex-1 min-w-0">
                       {item.isCustom ? (
-                        <input
-                          type="text"
-                          value={item.productName}
-                          onChange={e => handleUpdateItem(item.id, 'productName', e.target.value)}
-                          placeholder="Descrição do produto gráfico personalizado..."
-                          className="w-full font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-blue-500 focus:outline-none pb-0.5"
-                        />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <input
+                            type="text"
+                            value={item.productName}
+                            onChange={e => handleUpdateItem(item.id, 'productName', e.target.value)}
+                            placeholder="Descrição do produto gráfico personalizado..."
+                            className="font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-blue-500 focus:outline-none pb-0.5 min-w-[200px]"
+                          />
+                          <select
+                            value={mode}
+                            onChange={e => handleUpdateItem(item.id, 'pricingMode', e.target.value)}
+                            className="text-[11px] px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold cursor-pointer"
+                          >
+                            <option value="UNIT">Por Unidade</option>
+                            <option value="LOT">Por Lote / Tiragem</option>
+                            <option value="SQUARE_METER">Por Metro Quadrado (m²)</option>
+                            <option value="LINEAR_METER">Por Metro Linear</option>
+                          </select>
+                        </div>
                       ) : (
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-extrabold text-sm text-slate-900">
                             {item.productName}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700">
+                            {mode === 'LOT'
+                              ? `Lote de ${new Intl.NumberFormat('pt-BR').format(item.lotSize || 1000)} un.`
+                              : mode === 'SQUARE_METER'
+                              ? 'Metro Quadrado (m²)'
+                              : mode === 'LINEAR_METER'
+                              ? 'Metro Linear'
+                              : 'Por Unidade'}
                           </span>
                           <button
                             type="button"
@@ -1105,11 +1211,12 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                   </div>
                 </div>
 
-                {/* Linha 2: Especificações Técnicas e Preço */}
+                {/* Linha 2: Especificações Técnicas e Preço Dinâmicos por Modalidade */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* Campo 1: Quantidade Solicitada */}
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Quantidade
+                      {mode === 'LOT' ? 'Qtd. Solicitada (un.) *' : mode === 'UNIT' ? 'Quantidade (un.) *' : 'Quantidade (peças) *'}
                     </label>
                     <input
                       type="number"
@@ -1120,11 +1227,28 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     />
                   </div>
 
-                  {isAreaUnit ? (
+                  {/* Campos Específicos por Modalidade */}
+                  {mode === 'LOT' && (
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Tamanho do Lote (un.) *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.lotSize || 1000}
+                        onChange={e => handleUpdateItem(item.id, 'lotSize', e.target.value)}
+                        placeholder="1000"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  {mode === 'SQUARE_METER' && (
                     <>
                       <div>
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Largura (mm)
+                          Largura (mm) *
                         </label>
                         <input
                           type="number"
@@ -1137,65 +1261,75 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Altura (mm)
+                          Altura (mm) *
                         </label>
                         <input
                           type="number"
                           min={1}
                           value={item.heightMm || ''}
                           onChange={e => handleUpdateItem(item.id, 'heightMm', e.target.value)}
-                          placeholder="Ex: 2000"
+                          placeholder="Ex: 1500"
                           className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </>
-                  ) : (
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Substrato / Papel
-                      </label>
-                      {item.availableMaterials && item.availableMaterials.length > 1 ? (
-                        <select
-                          value={item.materialName}
-                          onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {item.availableMaterials.map(mat => (
-                            <option key={mat} value={mat}>
-                              {mat}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={item.materialName}
-                          onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
-                          placeholder="Ex: Papel Couché 150g"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      )}
-                    </div>
                   )}
 
-                  {isAreaUnit && (
+                  {mode === 'LINEAR_METER' && (
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Substrato
+                        Comprimento da Peça (m) *
                       </label>
                       <input
-                        type="text"
-                        value={item.materialName}
-                        onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
-                        placeholder="Ex: Lona Frontlight 440g"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={item.lengthMeters !== undefined ? item.lengthMeters : (item.widthMm ? item.widthMm / 1000 : 1)}
+                        onChange={e => handleUpdateItem(item.id, 'lengthMeters', e.target.value)}
+                        placeholder="Ex: 3.00"
                         className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   )}
 
+                  {/* Substrato / Papel */}
+                  <div className={mode === 'LOT' || mode === 'LINEAR_METER' ? 'lg:col-span-2' : mode === 'UNIT' ? 'lg:col-span-3' : 'lg:col-span-1'}>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Substrato / Insumo
+                    </label>
+                    {item.availableMaterials && item.availableMaterials.length > 1 ? (
+                      <select
+                        value={item.materialName}
+                        onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {item.availableMaterials.map(mat => (
+                          <option key={mat} value={mat}>
+                            {mat}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={item.materialName}
+                        onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
+                        placeholder="Ex: Papel Couché 300g, Lona Frontlight..."
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    )}
+                  </div>
+
+                  {/* Preço Base com Rótulo Neutro e Contextualizado */}
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Preço Unitário (R$)
+                      {mode === 'LOT'
+                        ? `Preço / Lote (${new Intl.NumberFormat('pt-BR').format(item.lotSize || 1000)} un.)`
+                        : mode === 'SQUARE_METER'
+                        ? 'Preço / m² (R$)'
+                        : mode === 'LINEAR_METER'
+                        ? 'Preço / m Linear (R$)'
+                        : 'Preço / Unidade (R$)'}
                     </label>
                     <input
                       type="text"
@@ -1206,6 +1340,21 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     />
                   </div>
                 </div>
+
+                {/* Banner de Demonstração de Cálculo da Modalidade */}
+                {item.pricingSummary && (
+                  <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200/80 flex items-center justify-between text-xs text-blue-900">
+                    <div className="flex items-center gap-2">
+                      <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="font-semibold">{item.pricingSummary}</span>
+                    </div>
+                    {mode === 'LOT' && item.quantity % (item.lotSize || 1000) !== 0 && (
+                      <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-200">
+                        {item.billedQuantity} lotes cobrados
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Linha 3: Acabamentos do Item (Estilo Sem Vermelho: Azul para Obrigatório, Turquesa para Selecionado, Cinza Claro para Opcional) */}
                 <div className="pt-2 border-t border-slate-200/50 space-y-2">

@@ -19,6 +19,7 @@ import autoTable from 'jspdf-autotable';
 import { Quote } from '../types/quote';
 import { Company } from '../types/tenant';
 import { formatCentsToBRL } from '../domain/money';
+import { inferPricingMode } from '../domain/pricing-engine';
 
 export class PdfExportService {
   /**
@@ -197,7 +198,7 @@ export class PdfExportService {
     // 3. TABELA DE ITENS, MATERIAIS, ACABAMENTOS E VALORES
     // ============================================================
     const tableBody = (quote.items || []).map((item, idx) => {
-      // Descrição rica com especificações técnicas comerciais
+      const mode = item.pricingMode || inferPricingMode(item);
       const specs: string[] = [];
       if (item.materialName) specs.push(`Material: ${item.materialName}`);
       if (item.widthMm && item.heightMm) specs.push(`Dimensões: ${item.widthMm} x ${item.heightMm} mm`);
@@ -209,22 +210,41 @@ export class PdfExportService {
         specs.push(`Obs: ${item.notes}`);
       }
 
+      let qtdCol = item.quantity.toLocaleString('pt-BR');
+      let unitCol = formatCentsToBRL(item.basePriceCents || item.unitPriceCents || 0);
+
+      if (mode === 'LOT') {
+        const lotSize = item.lotSize || 1000;
+        const billedLots = item.billedQuantity || Math.max(1, Math.ceil(item.quantity / lotSize));
+        qtdCol = `${item.quantity.toLocaleString('pt-BR')} un.\n(${billedLots} lote de ${lotSize.toLocaleString('pt-BR')})`;
+        unitCol = `${formatCentsToBRL(item.basePriceCents || item.totalPriceCents)}/lote`;
+      } else if (mode === 'SQUARE_METER') {
+        const area = item.areaM2 ? ` (${item.areaM2.toFixed(2)} m²)` : '';
+        qtdCol = `${item.quantity} pç${area}`;
+        unitCol = `${formatCentsToBRL(item.basePriceCents || item.unitPriceCents)}/m²`;
+      } else if (mode === 'LINEAR_METER') {
+        const len = item.linearMeters ? ` (${item.linearMeters.toFixed(2)} m lin.)` : '';
+        qtdCol = `${item.quantity} pç${len}`;
+        unitCol = `${formatCentsToBRL(item.basePriceCents || item.unitPriceCents)}/m`;
+      } else {
+        unitCol = `${formatCentsToBRL(item.basePriceCents || item.unitPriceCents)}/un.`;
+      }
+
       const descText = `${item.productName}\n${specs.join('  •  ')}`;
-      const unitFormatted = formatCentsToBRL(item.unitPriceCents || 0);
       const totalFormatted = formatCentsToBRL(item.totalPriceCents || 0);
 
       return [
         (idx + 1).toString().padStart(2, '0'),
         descText,
-        item.quantity.toLocaleString('pt-BR'),
-        unitFormatted,
+        qtdCol,
+        unitCol,
         totalFormatted,
       ];
     });
 
     autoTable(doc, {
       startY: currentY,
-      head: [['#', 'DESCRIÇÃO DO PRODUTO & ESPECIFICAÇÕES TÉCNICAS', 'QTD', 'PREÇO UNIT.', 'TOTAL ITEM']],
+      head: [['#', 'DESCRIÇÃO DO PRODUTO & ESPECIFICAÇÕES TÉCNICAS', 'QTD / COBRANÇA', 'PREÇO BASE', 'TOTAL ITEM']],
       body: tableBody,
       margin: { left: margin, right: margin },
       theme: 'grid',
