@@ -34,9 +34,11 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
 import { useTenant } from '../context/TenantContext';
 import { useCommercial } from '../context/CommercialContext';
 import { useNotification } from '../context/NotificationContext';
+import { Customer } from '../types/customer';
 import {
   QuoteDiscountType,
   PaymentMethod,
@@ -123,16 +125,66 @@ const PAYMENT_CONDITION_LABELS: Record<PaymentCondition, string> = {
 
 export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess }) => {
   const { currentCompany, currentUser, companyUsers } = useTenant();
-  const { products, finishings: catalogFinishings, createQuote } = useCommercial();
+  const { products, finishings: catalogFinishings, customers, createQuote } = useCommercial();
   const { showNotice } = useNotification();
 
   // ==========================================
   // 1. DADOS DO CLIENTE
   // ==========================================
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const customerSearchRef = useRef<HTMLDivElement>(null);
+
   const [customerName, setCustomerName] = useState('');
   const [customerContact, setCustomerContact] = useState('');
   const [customerDocument, setCustomerDocument] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+
+  // Fechar dropdown de clientes ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        customerSearchRef.current &&
+        !customerSearchRef.current.contains(event.target as Node)
+      ) {
+        setIsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredRegisteredCustomers = useMemo(() => {
+    const activeCustomers = (customers || []).filter(c => c.isActive);
+    if (!customerSearchQuery.trim()) return activeCustomers;
+    const term = customerSearchQuery.trim().toLowerCase();
+    const cleanTerm = term.replace(/\D/g, '');
+    return activeCustomers.filter(c => {
+      const nameMatch = c.name.toLowerCase().includes(term);
+      const corpMatch = (c.corporateName || '').toLowerCase().includes(term);
+      const emailMatch = (c.email || '').toLowerCase().includes(term);
+      const phoneMatch = (c.phone || '').includes(term) || (c.whatsapp || '').includes(term);
+      const docClean = (c.document || '').replace(/\D/g, '');
+      const docMatch = (c.document || '').includes(term) || (cleanTerm && docClean.includes(cleanTerm));
+      return nameMatch || corpMatch || emailMatch || phoneMatch || Boolean(docMatch);
+    });
+  }, [customers, customerSearchQuery]);
+
+  const handleSelectCustomer = (customer: Customer) => {
+    setSelectedCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerContact(customer.whatsapp || customer.phone || '');
+    setCustomerDocument(customer.document || '');
+    setCustomerEmail(customer.email || '');
+    setIsCustomerDropdownOpen(false);
+    setCustomerSearchQuery('');
+    showNotice('Cliente Vinculado', `Dados de "${customer.name}" carregados para a proposta.`, 'info');
+  };
+
+  const handleClearSelectedCustomer = () => {
+    setSelectedCustomerId(null);
+  };
 
   // ==========================================
   // 2. ITENS DO ORÇAMENTO E ACABAMENTOS
@@ -761,6 +813,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       : null;
 
     createQuote({
+      customerId: selectedCustomerId || undefined,
       customerName: customerName.trim(),
       customerContact: customerContact.trim() || undefined,
       customerDocument: customerDocument.trim() || undefined,
@@ -839,11 +892,11 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
       {/* 1. Identificação do Cliente */}
       <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 text-slate-800">
             <UserIcon className="w-4 h-4 text-blue-600" />
             <h2 className="text-sm font-bold uppercase tracking-wider">
-              Dados do Cliente
+              1. Dados do Cliente
             </h2>
           </div>
           <span className="text-[11px] font-semibold text-slate-400">
@@ -851,7 +904,79 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Barra de Busca / Seleção de Cliente Cadastrado */}
+        <div className="relative" ref={customerSearchRef}>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={customerSearchQuery}
+                onFocus={() => setIsCustomerDropdownOpen(true)}
+                onChange={e => {
+                  setCustomerSearchQuery(e.target.value);
+                  setIsCustomerDropdownOpen(true);
+                }}
+                placeholder="Buscar cliente cadastrado por nome, documento, e-mail ou telefone..."
+                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all shadow-2xs"
+              />
+            </div>
+
+            {selectedCustomerId && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Cliente vinculado da base</span>
+                <button
+                  type="button"
+                  onClick={handleClearSelectedCustomer}
+                  className="ml-1 p-0.5 hover:bg-emerald-200/60 rounded text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                  title="Desvincular e manter dados editáveis"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Dropdown de Clientes Encontrados */}
+          {isCustomerDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 z-30 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y divide-slate-100 animate-in fade-in duration-100">
+              <div className="p-2 bg-slate-50 text-[11px] font-semibold text-slate-500 flex justify-between items-center">
+                <span>Clientes Cadastrados Ativos ({filteredRegisteredCustomers.length})</span>
+                <span className="text-[10px] text-slate-400">Clique para auto-preencher</span>
+              </div>
+
+              {filteredRegisteredCustomers.length > 0 ? (
+                filteredRegisteredCustomers.map(cust => (
+                  <button
+                    key={cust.id}
+                    type="button"
+                    onClick={() => handleSelectCustomer(cust)}
+                    className="w-full text-left p-3 hover:bg-blue-50/70 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 group-hover:text-blue-700 truncate">
+                        {cust.name}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {cust.document ? `Doc: ${cust.document}` : 'Sem documento'} • {cust.phone || cust.whatsapp || cust.email || 'Sem contato'}
+                      </p>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold shrink-0 bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-800">
+                      {cust.type === 'company' ? 'PJ' : 'PF'}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-slate-500">
+                  Nenhum cliente cadastrado com este termo. Você pode preencher os campos abaixo normalmente para cliente avulso.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
           <Input
             label="Nome do Cliente / Razão Social *"
             value={customerName}
@@ -879,6 +1004,10 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
             placeholder="contato@cliente.com.br"
           />
         </div>
+
+        <p className="text-[11px] text-slate-400">
+          Nota: Os dados acima formam o snapshot específico desta proposta comercial e não alteram o cadastro original.
+        </p>
       </Card>
 
       {/* 2. Itens do Orçamento e Acabamentos */}

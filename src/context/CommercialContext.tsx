@@ -9,9 +9,10 @@
  * O módulo Financeiro (Contas a Receber, Pagar, Caixa, DRE, etc.) reside exclusivamente no ArteFlow.
  */
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { Quote, QuoteStatus, QuoteDiscount, QuoteFinancialTerms, QuoteEvent } from '../types/quote';
 import { Product, Material, Finishing } from '../types/product';
+import { Customer } from '../types/customer';
 import { QuoteApprovedEventPayload } from '../types/arteflow';
 import { useTenant } from './TenantContext';
 import { useNotification } from './NotificationContext';
@@ -27,6 +28,12 @@ import {
   getInitialFinishingsTemplate,
   initializeTenantFinishings,
 } from '../domain/product-catalog';
+import {
+  customerRepository,
+  CustomerCreateInput,
+  CustomerUpdateInput,
+  sanitizeDocument,
+} from '../domain/customer-repository';
 
 // Dados Iniciais do Sistema de Orçamentos
 const INITIAL_QUOTES: Quote[] = [
@@ -238,6 +245,14 @@ export interface CommercialMetrics {
 }
 
 interface CommercialContextValue {
+  // Clientes
+  customers: Customer[];
+  createCustomer: (data: CustomerCreateInput) => Promise<{ success: boolean; customer?: Customer; error?: string }>;
+  updateCustomer: (id: string, data: CustomerUpdateInput) => Promise<{ success: boolean; customer?: Customer; error?: string }>;
+  toggleCustomerActive: (id: string) => Promise<{ success: boolean; isActive?: boolean; error?: string }>;
+  findCustomerById: (id: string) => Customer | undefined;
+  searchCustomers: (query: string) => Customer[];
+
   // Orçamentos
   quotes: Quote[];
   metrics: CommercialMetrics;
@@ -326,6 +341,79 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   const tenantFinishings = useMemo(() => {
     return allFinishings.filter(f => f.tenantId === tenantId);
   }, [allFinishings, tenantId]);
+
+  // Clientes por Tenant (com suporte a reatividade e persistência isolada)
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
+
+  const reloadCustomers = useCallback(async () => {
+    const list = await customerRepository.list(tenantId);
+    setCustomersList(list);
+  }, [tenantId]);
+
+  useEffect(() => {
+    reloadCustomers();
+  }, [reloadCustomers]);
+
+  const createCustomer = async (
+    data: CustomerCreateInput
+  ): Promise<{ success: boolean; customer?: Customer; error?: string }> => {
+    const result = await customerRepository.create(tenantId, data);
+    if (result.success && result.customer) {
+      await reloadCustomers();
+      showNotice('Cliente Cadastrado', `Cliente "${result.customer.name}" foi cadastrado com sucesso.`, 'success');
+    } else if (result.error) {
+      showNotice('Erro no Cadastro', result.error, 'warning');
+    }
+    return result;
+  };
+
+  const updateCustomer = async (
+    id: string,
+    data: CustomerUpdateInput
+  ): Promise<{ success: boolean; customer?: Customer; error?: string }> => {
+    const result = await customerRepository.update(tenantId, id, data);
+    if (result.success && result.customer) {
+      await reloadCustomers();
+      showNotice('Cliente Atualizado', `Cadastro de "${result.customer.name}" foi atualizado.`, 'success');
+    } else if (result.error) {
+      showNotice('Erro ao Atualizar', result.error, 'warning');
+    }
+    return result;
+  };
+
+  const toggleCustomerActive = async (
+    id: string
+  ): Promise<{ success: boolean; isActive?: boolean; error?: string }> => {
+    const result = await customerRepository.toggleActive(tenantId, id);
+    if (result.success) {
+      await reloadCustomers();
+      showNotice(
+        result.isActive ? 'Cliente Ativado' : 'Cliente Desativado',
+        `Status do cliente alterado para ${result.isActive ? 'ativo' : 'inativo'}.`,
+        'info'
+      );
+    }
+    return result;
+  };
+
+  const findCustomerById = (id: string): Customer | undefined => {
+    return customersList.find(c => c.id === id && c.tenantId === tenantId);
+  };
+
+  const searchCustomers = (query: string): Customer[] => {
+    if (!query.trim()) return customersList;
+    const term = query.trim().toLowerCase();
+    const cleanTerm = sanitizeDocument(term);
+    return customersList.filter(c => {
+      const nameMatch = c.name.toLowerCase().includes(term);
+      const corpMatch = (c.corporateName || '').toLowerCase().includes(term);
+      const emailMatch = (c.email || '').toLowerCase().includes(term);
+      const phoneMatch = (c.phone || '').includes(term) || (c.whatsapp || '').includes(term);
+      const docClean = sanitizeDocument(c.document);
+      const docMatch = (c.document || '').includes(term) || (cleanTerm && docClean.includes(cleanTerm));
+      return nameMatch || corpMatch || emailMatch || phoneMatch || Boolean(docMatch);
+    });
+  };
 
   // Orçamentos exclusivos do tenant atual
   const currentTenantQuotes = useMemo(() => {
@@ -980,6 +1068,12 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   return (
     <CommercialContext.Provider
       value={{
+        customers: customersList,
+        createCustomer,
+        updateCustomer,
+        toggleCustomerActive,
+        findCustomerById,
+        searchCustomers,
         quotes: currentTenantQuotes,
         metrics,
         products: tenantProducts,
