@@ -1,0 +1,1225 @@
+/**
+ * @file CatalogPage.tsx
+ * @description Catálogo Comercial Unificado: Produtos, Insumos (Materiais) e Acabamentos Gráficos
+ * @routes /catalog/products, /catalog/supplies, /catalog/finishes
+ * @project OrçaGraf
+ */
+
+import React, { useState, useMemo } from 'react';
+import {
+  Package,
+  Layers,
+  Scissors,
+  Search,
+  PlusCircle,
+  Edit,
+  Copy,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  Sliders,
+  DollarSign,
+  Tag,
+  Check,
+  X,
+  Sparkles,
+  Info,
+} from 'lucide-react';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
+import { useCommercial } from '../context/CommercialContext';
+import { useTenant } from '../context/TenantContext';
+import { useNotification } from '../context/NotificationContext';
+import {
+  Product,
+  Material,
+  Finishing,
+  PRODUCT_CATEGORIES,
+  CalculationUnit,
+} from '../types/product';
+import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
+
+export type CatalogTab = 'products' | 'supplies' | 'finishes';
+
+interface CatalogPageProps {
+  initialTab?: CatalogTab;
+  onNavigateTab: (tab: CatalogTab) => void;
+}
+
+export const CatalogPage: React.FC<CatalogPageProps> = ({
+  initialTab = 'products',
+  onNavigateTab,
+}) => {
+  const {
+    products,
+    materials,
+    finishings,
+    createProduct,
+    updateProduct,
+    toggleProductActive,
+    duplicateProduct,
+    deleteProduct,
+    isProductUsedInQuotes,
+    createMaterial,
+    updateMaterial,
+    toggleMaterialActive,
+    deleteMaterial,
+    createFinishing,
+    updateFinishing,
+    toggleFinishingActive,
+    deleteFinishing,
+  } = useCommercial();
+
+  const { showNotice } = useNotification();
+
+  const [activeTab, setActiveTab] = useState<CatalogTab>(initialTab);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Sincroniza tab com URL externa se alterada
+  const handleSelectTab = (tab: CatalogTab) => {
+    setActiveTab(tab);
+    setSearchTerm('');
+    setCategoryFilter('all');
+    setStatusFilter('all');
+    onNavigateTab(tab);
+  };
+
+  // ==========================================
+  // MODAIS E ESTADOS DE EDIÇÃO
+  // ==========================================
+  // Modal de Produto
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productForm, setProductForm] = useState<{
+    name: string;
+    sku: string;
+    category: string;
+    calculationUnit: CalculationUnit;
+    salePriceStr: string;
+    minSalePriceStr: string;
+    defaultMaterial: string;
+    defaultFinishing: string;
+    linkedFinishings: { finishingName: string; isRequired: boolean; isDefaultSelected: boolean }[];
+  }>({
+    name: '',
+    sku: '',
+    category: 'prints',
+    calculationUnit: 'unit',
+    salePriceStr: '0,00',
+    minSalePriceStr: '0,00',
+    defaultMaterial: '',
+    defaultFinishing: '',
+    linkedFinishings: [],
+  });
+
+  // Modal de Insumo (Material)
+  const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [materialForm, setMaterialForm] = useState<{
+    name: string;
+    category: string;
+    unit: 'sheet' | 'm2' | 'kg' | 'unit' | 'roll';
+    costPriceStr: string;
+    salePriceStr: string;
+    notes: string;
+  }>({
+    name: '',
+    category: 'Papéis',
+    unit: 'sheet',
+    costPriceStr: '0,00',
+    salePriceStr: '0,00',
+    notes: '',
+  });
+
+  // Modal de Acabamento
+  const [isFinishingModalOpen, setIsFinishingModalOpen] = useState(false);
+  const [editingFinishing, setEditingFinishing] = useState<Finishing | null>(null);
+  const [finishingForm, setFinishingForm] = useState<{
+    name: string;
+    pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter';
+    costPriceStr: string;
+    salePriceStr: string;
+    isRequired: boolean;
+    isDefaultSelected: boolean;
+    compatibleProductsText: string;
+    notes: string;
+  }>({
+    name: '',
+    pricingMethod: 'unit',
+    costPriceStr: '0,00',
+    salePriceStr: '0,00',
+    isRequired: false,
+    isDefaultSelected: false,
+    compatibleProductsText: '',
+    notes: '',
+  });
+
+  // ==========================================
+  // FILTRAGENS
+  // ==========================================
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchSearch =
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchCategory = categoryFilter === 'all' || p.category === categoryFilter;
+      const matchStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && p.isActive) ||
+        (statusFilter === 'inactive' && !p.isActive);
+
+      return matchSearch && matchCategory && matchStatus;
+    });
+  }, [products, searchTerm, categoryFilter, statusFilter]);
+
+  const filteredMaterials = useMemo(() => {
+    return materials.filter(m => {
+      const matchSearch =
+        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchCategory = categoryFilter === 'all' || m.category === categoryFilter;
+      const matchStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && m.isActive) ||
+        (statusFilter === 'inactive' && !m.isActive);
+
+      return matchSearch && matchCategory && matchStatus;
+    });
+  }, [materials, searchTerm, categoryFilter, statusFilter]);
+
+  const filteredFinishings = useMemo(() => {
+    return finishings.filter(f => {
+      const matchSearch =
+        f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (f.notes && f.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && f.isActive) ||
+        (statusFilter === 'inactive' && !f.isActive);
+
+      return matchSearch && matchStatus;
+    });
+  }, [finishings, searchTerm, statusFilter]);
+
+  // ==========================================
+  // PRODUTOS HANDLERS
+  // ==========================================
+  const handleOpenCreateProduct = () => {
+    setEditingProduct(null);
+    setProductForm({
+      name: '',
+      sku: `SKU-${Date.now().toString().slice(-4)}`,
+      category: 'prints',
+      calculationUnit: 'unit',
+      salePriceStr: '0,00',
+      minSalePriceStr: '0,00',
+      defaultMaterial: materials[0]?.name || '',
+      defaultFinishing: '',
+      linkedFinishings: [],
+    });
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (p: Product) => {
+    setEditingProduct(p);
+    setProductForm({
+      name: p.name,
+      sku: p.sku,
+      category: p.category,
+      calculationUnit: p.calculationUnit,
+      salePriceStr: (p.salePriceCents / 100).toFixed(2).replace('.', ','),
+      minSalePriceStr: ((p.minSalePriceCents || 0) / 100).toFixed(2).replace('.', ','),
+      defaultMaterial: p.defaultMaterial || '',
+      defaultFinishing: p.defaultFinishing || '',
+      linkedFinishings: p.linkedFinishings
+        ? p.linkedFinishings.map(lf => ({
+            finishingName: lf.finishingName,
+            isRequired: Boolean(lf.isRequired),
+            isDefaultSelected: Boolean(lf.isDefaultSelected),
+          }))
+        : [],
+    });
+    setIsProductModalOpen(true);
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productForm.name.trim()) {
+      showNotice('Campo Obrigatório', 'Informe o nome do produto.', 'warning');
+      return;
+    }
+
+    const salePriceCents = parseBRLToCents(productForm.salePriceStr);
+    const minSalePriceCents = parseBRLToCents(productForm.minSalePriceStr);
+
+    const payload: Partial<Product> = {
+      name: productForm.name.trim(),
+      sku: productForm.sku.trim(),
+      category: productForm.category,
+      calculationUnit: productForm.calculationUnit,
+      salePriceCents,
+      minSalePriceCents,
+      hasPriceConfigured: salePriceCents > 0,
+      defaultMaterial: productForm.defaultMaterial.trim(),
+      defaultFinishing: productForm.defaultFinishing.trim(),
+      linkedFinishings: productForm.linkedFinishings.map((lf, idx) => ({
+        finishingName: lf.finishingName,
+        isRequired: lf.isRequired,
+        isDefaultSelected: lf.isDefaultSelected,
+        isActive: true,
+        displayOrder: idx + 1,
+      })),
+      availableMaterials: productForm.defaultMaterial ? [productForm.defaultMaterial] : [],
+      availableFinishings: productForm.linkedFinishings.map(lf => lf.finishingName),
+    };
+
+    if (editingProduct) {
+      updateProduct(editingProduct.id, payload);
+    } else {
+      createProduct(payload);
+    }
+
+    setIsProductModalOpen(false);
+  };
+
+  const handleDeleteProduct = (p: Product) => {
+    if (isProductUsedInQuotes(p.id)) {
+      showNotice(
+        'Bloqueio de Exclusão',
+        `O produto "${p.name}" está vinculado a orçamentos existentes e não pode ser excluído para preservar o histórico comercial. Desative-o se não desejar novas vendas.`,
+        'warning'
+      );
+      return;
+    }
+
+    if (confirm(`Deseja excluir permanentemente o produto "${p.name}"?`)) {
+      deleteProduct(p.id);
+    }
+  };
+
+  // ==========================================
+  // INSUMOS (MATERIAIS) HANDLERS
+  // ==========================================
+  const handleOpenCreateMaterial = () => {
+    setEditingMaterial(null);
+    setMaterialForm({
+      name: '',
+      category: 'Papéis',
+      unit: 'sheet',
+      costPriceStr: '0,00',
+      salePriceStr: '0,00',
+      notes: '',
+    });
+    setIsMaterialModalOpen(true);
+  };
+
+  const handleOpenEditMaterial = (m: Material) => {
+    setEditingMaterial(m);
+    setMaterialForm({
+      name: m.name,
+      category: m.category,
+      unit: m.unit,
+      costPriceStr: (m.costPriceCents / 100).toFixed(2).replace('.', ','),
+      salePriceStr: ((m.salePriceCents || 0) / 100).toFixed(2).replace('.', ','),
+      notes: m.notes || '',
+    });
+    setIsMaterialModalOpen(true);
+  };
+
+  const handleSaveMaterial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!materialForm.name.trim()) {
+      showNotice('Campo Obrigatório', 'Informe o nome do insumo.', 'warning');
+      return;
+    }
+
+    const costPriceCents = parseBRLToCents(materialForm.costPriceStr);
+    const salePriceCents = parseBRLToCents(materialForm.salePriceStr);
+
+    if (editingMaterial) {
+      updateMaterial(editingMaterial.id, {
+        name: materialForm.name.trim(),
+        category: materialForm.category.trim(),
+        unit: materialForm.unit,
+        costPriceCents,
+        salePriceCents,
+        notes: materialForm.notes.trim(),
+      });
+    } else {
+      createMaterial({
+        name: materialForm.name.trim(),
+        category: materialForm.category.trim(),
+        unit: materialForm.unit,
+        costPriceCents,
+        salePriceCents,
+        notes: materialForm.notes.trim(),
+      });
+    }
+
+    setIsMaterialModalOpen(false);
+  };
+
+  // ==========================================
+  // ACABAMENTOS HANDLERS
+  // ==========================================
+  const handleOpenCreateFinishing = () => {
+    setEditingFinishing(null);
+    setFinishingForm({
+      name: '',
+      pricingMethod: 'unit',
+      costPriceStr: '0,00',
+      salePriceStr: '0,00',
+      isRequired: false,
+      isDefaultSelected: false,
+      compatibleProductsText: '',
+      notes: '',
+    });
+    setIsFinishingModalOpen(true);
+  };
+
+  const handleOpenEditFinishing = (f: Finishing) => {
+    setEditingFinishing(f);
+    setFinishingForm({
+      name: f.name,
+      pricingMethod: f.pricingMethod,
+      costPriceStr: (f.costPriceCents / 100).toFixed(2).replace('.', ','),
+      salePriceStr: ((f.salePriceCents || 0) / 100).toFixed(2).replace('.', ','),
+      isRequired: Boolean(f.isRequired),
+      isDefaultSelected: Boolean(f.isDefaultSelected),
+      compatibleProductsText: f.compatibleProducts ? f.compatibleProducts.join(', ') : '',
+      notes: f.notes || '',
+    });
+    setIsFinishingModalOpen(true);
+  };
+
+  const handleSaveFinishing = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!finishingForm.name.trim()) {
+      showNotice('Campo Obrigatório', 'Informe o nome do acabamento.', 'warning');
+      return;
+    }
+
+    const costPriceCents = parseBRLToCents(finishingForm.costPriceStr);
+    const salePriceCents = parseBRLToCents(finishingForm.salePriceStr);
+    const compatible = finishingForm.compatibleProductsText
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (editingFinishing) {
+      updateFinishing(editingFinishing.id, {
+        name: finishingForm.name.trim(),
+        pricingMethod: finishingForm.pricingMethod,
+        costPriceCents,
+        salePriceCents,
+        isRequired: finishingForm.isRequired,
+        isDefaultSelected: finishingForm.isDefaultSelected,
+        compatibleProducts: compatible,
+        notes: finishingForm.notes.trim(),
+      });
+    } else {
+      createFinishing({
+        name: finishingForm.name.trim(),
+        pricingMethod: finishingForm.pricingMethod,
+        costPriceCents,
+        salePriceCents,
+        isRequired: finishingForm.isRequired,
+        isDefaultSelected: finishingForm.isDefaultSelected,
+        compatibleProducts: compatible,
+        notes: finishingForm.notes.trim(),
+      });
+    }
+
+    setIsFinishingModalOpen(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header com 3 Abas Principais */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Catálogo Comercial</h1>
+          <p className="text-sm text-slate-500">
+            Gerencie o catálogo de produtos gráficos, insumos/substratos e acabamentos técnicos cadastrados.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {activeTab === 'products' && (
+            <Button
+              variant="primary"
+              icon={<PlusCircle className="w-4 h-4" />}
+              onClick={handleOpenCreateProduct}
+            >
+              Novo Produto
+            </Button>
+          )}
+          {activeTab === 'supplies' && (
+            <Button
+              variant="primary"
+              icon={<PlusCircle className="w-4 h-4" />}
+              onClick={handleOpenCreateMaterial}
+            >
+              Novo Insumo
+            </Button>
+          )}
+          {activeTab === 'finishes' && (
+            <Button
+              variant="primary"
+              icon={<PlusCircle className="w-4 h-4" />}
+              onClick={handleOpenCreateFinishing}
+            >
+              Novo Acabamento
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Navegação de Abas do Catálogo */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-none">
+        <button
+          type="button"
+          onClick={() => handleSelectTab('products')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'products'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>Produtos ({products.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSelectTab('supplies')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'supplies'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Insumos / Substratos ({materials.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSelectTab('finishes')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'finishes'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Scissors className="w-4 h-4" />
+          <span>Acabamentos Técnicos ({finishings.length})</span>
+        </button>
+      </div>
+
+      {/* Barra de Filtros e Busca */}
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="relative w-full sm:max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={`Buscar em ${
+              activeTab === 'products' ? 'produtos' : activeTab === 'supplies' ? 'insumos' : 'acabamentos'
+            }...`}
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+          />
+        </div>
+
+        {activeTab === 'products' && (
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Todas as Categorias</option>
+            {PRODUCT_CATEGORIES.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as any)}
+          className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="all">Todos os Status</option>
+          <option value="active">Apenas Ativos</option>
+          <option value="inactive">Apenas Inativos</option>
+        </select>
+      </div>
+
+      {/* ============================================================ */}
+      {/* ABA 1: PRODUTOS */}
+      {/* ============================================================ */}
+      {activeTab === 'products' && (
+        <Card className="p-0 overflow-hidden bg-white border-slate-200 shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Produto & SKU</th>
+                  <th className="py-3 px-4">Categoria</th>
+                  <th className="py-3 px-4">Substrato Padrão</th>
+                  <th className="py-3 px-4">Preço / Unidade</th>
+                  <th className="py-3 px-4">Acabamentos Vinculados</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {filteredProducts.map(product => (
+                  <tr key={product.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-900 text-xs">{product.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{product.sku}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 text-[11px]">
+                      {PRODUCT_CATEGORIES.find(c => c.id === product.category)?.label || product.category}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 text-[11px]">
+                      {product.defaultMaterial || 'Não definido'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono">
+                      {product.hasPriceConfigured ? (
+                        <div>
+                          <span className="font-bold text-slate-900 text-xs">
+                            {formatCentsToBRL(product.salePriceCents)}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            /{product.calculationUnit === 'm2' ? 'm²' : product.calculationUnit === 'linear_meter' ? 'm. lin.' : 'un.'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Preço Manual
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {product.linkedFinishings && product.linkedFinishings.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[240px]">
+                          {product.linkedFinishings.map((lf, idx) => (
+                            <span
+                              key={idx}
+                              className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${
+                                lf.isRequired
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : lf.isDefaultSelected
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              {lf.finishingName}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Nenhum</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <Badge variant={product.isActive ? 'success' : 'neutral'} size="sm">
+                        {product.isActive ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Duplicar Produto"
+                          icon={<Copy className="w-3.5 h-3.5" />}
+                          onClick={() => duplicateProduct(product.id)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Editar Produto"
+                          icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                          onClick={() => handleOpenEditProduct(product)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title={product.isActive ? 'Desativar' : 'Ativar'}
+                          className={product.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                          onClick={() => toggleProductActive(product.id)}
+                        >
+                          {product.isActive ? 'Desativar' : 'Ativar'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Excluir"
+                          className="text-rose-600 hover:bg-rose-50"
+                          icon={<Trash2 className="w-3.5 h-3.5" />}
+                          onClick={() => handleDeleteProduct(product)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* ABA 2: INSUMOS (MATERIAIS) */}
+      {/* ============================================================ */}
+      {activeTab === 'supplies' && (
+        <Card className="p-0 overflow-hidden bg-white border-slate-200 shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Nome do Insumo</th>
+                  <th className="py-3 px-4">Categoria</th>
+                  <th className="py-3 px-4">Unidade de Medida</th>
+                  <th className="py-3 px-4">Custo Base</th>
+                  <th className="py-3 px-4">Preço de Venda</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {filteredMaterials.map(mat => (
+                  <tr key={mat.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 text-xs">
+                      {mat.name}
+                      {mat.notes && <div className="text-[10px] text-slate-400 font-normal">{mat.notes}</div>}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">{mat.category}</td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] font-bold border border-slate-200">
+                        {mat.unit}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-700">
+                      {mat.costPriceCents > 0 ? formatCentsToBRL(mat.costPriceCents) : 'R$ 0,00'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                      {mat.salePriceCents && mat.salePriceCents > 0 ? formatCentsToBRL(mat.salePriceCents) : '—'}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <Badge variant={mat.isActive ? 'success' : 'neutral'} size="sm">
+                        {mat.isActive ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                          onClick={() => handleOpenEditMaterial(mat)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={mat.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                          onClick={() => toggleMaterialActive(mat.id)}
+                        >
+                          {mat.isActive ? 'Desativar' : 'Ativar'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-rose-600 hover:bg-rose-50"
+                          icon={<Trash2 className="w-3.5 h-3.5" />}
+                          onClick={() => deleteMaterial(mat.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* ABA 3: ACABAMENTOS TÉCNICOS */}
+      {/* ============================================================ */}
+      {activeTab === 'finishes' && (
+        <Card className="p-0 overflow-hidden bg-white border-slate-200 shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Acabamento</th>
+                  <th className="py-3 px-4">Forma de Cobrança</th>
+                  <th className="py-3 px-4">Custo / Preço</th>
+                  <th className="py-3 px-4">Regras de Seleção</th>
+                  <th className="py-3 px-4">Produtos Compatíveis</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {filteredFinishings.map(fin => (
+                  <tr key={fin.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 text-xs">
+                      {fin.name}
+                      {fin.notes && <div className="text-[10px] text-slate-400 font-normal">{fin.notes}</div>}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600 text-[11px]">
+                      {fin.pricingMethod === 'unit'
+                        ? 'Por Unidade'
+                        : fin.pricingMethod === 'area_m2'
+                        ? 'Por m²'
+                        : fin.pricingMethod === 'linear_meter'
+                        ? 'Por Metro Linear'
+                        : fin.pricingMethod === 'mil'
+                        ? 'Por Milheiro'
+                        : 'Valor Fixo'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono">
+                      <div className="font-bold text-slate-900">
+                        {fin.costPriceCents > 0 ? formatCentsToBRL(fin.costPriceCents) : 'R$ 0,00'}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1">
+                        {fin.isRequired && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Obrigatório
+                          </span>
+                        )}
+                        {fin.isDefaultSelected && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            Auto Selecionado
+                          </span>
+                        )}
+                        {!fin.isRequired && !fin.isDefaultSelected && (
+                          <span className="text-[10px] text-slate-400">Opcional</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-[11px] text-slate-600">
+                      {fin.compatibleProducts && fin.compatibleProducts.length > 0 ? (
+                        <div className="truncate max-w-[200px]">{fin.compatibleProducts.join(', ')}</div>
+                      ) : (
+                        <span className="text-slate-400">Todos os produtos</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <Badge variant={fin.isActive ? 'success' : 'neutral'} size="sm">
+                        {fin.isActive ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                          onClick={() => handleOpenEditFinishing(fin)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={fin.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                          onClick={() => toggleFinishingActive(fin.id)}
+                        >
+                          {fin.isActive ? 'Desativar' : 'Ativar'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-rose-600 hover:bg-rose-50"
+                          icon={<Trash2 className="w-3.5 h-3.5" />}
+                          onClick={() => deleteFinishing(fin.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL: PRODUTO */}
+      {/* ============================================================ */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-900">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-900">
+                {editingProduct ? 'Editar Produto do Catálogo' : 'Cadastrar Novo Produto'}
+              </h3>
+              <button onClick={() => setIsProductModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProduct} className="p-5 overflow-y-auto space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Nome Comercial do Produto *"
+                  value={productForm.name}
+                  onChange={e => setProductForm({ ...productForm, name: e.target.value })}
+                  placeholder="Ex: Cartão de Visita, Banner..."
+                  required
+                />
+                <Input
+                  label="SKU / Código Único"
+                  value={productForm.sku}
+                  onChange={e => setProductForm({ ...productForm, sku: e.target.value })}
+                  placeholder="Ex: PROD-001"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Categoria
+                  </label>
+                  <select
+                    value={productForm.category}
+                    onChange={e => setProductForm({ ...productForm, category: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  >
+                    {PRODUCT_CATEGORIES.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Unidade de Cálculo
+                  </label>
+                  <select
+                    value={productForm.calculationUnit}
+                    onChange={e => setProductForm({ ...productForm, calculationUnit: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="unit">Por Unidade / Tabela</option>
+                    <option value="m2">Por Metro Quadrado (m²)</option>
+                    <option value="linear_meter">Por Metro Linear</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Preço de Venda Sugerido (R$)"
+                  value={productForm.salePriceStr}
+                  onChange={e => setProductForm({ ...productForm, salePriceStr: e.target.value })}
+                  placeholder="0,00"
+                />
+                <Input
+                  label="Preço Mínimo de Venda (R$)"
+                  value={productForm.minSalePriceStr}
+                  onChange={e => setProductForm({ ...productForm, minSalePriceStr: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Substrato / Insumo Principal
+                </label>
+                <select
+                  value={productForm.defaultMaterial}
+                  onChange={e => setProductForm({ ...productForm, defaultMaterial: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione um substrato do catálogo...</option>
+                  {materials.map(m => (
+                    <option key={m.id} value={m.name}>
+                      {m.name} ({m.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Vínculo de Acabamentos */}
+              <div className="pt-2">
+                <label className="block font-bold uppercase tracking-wider text-slate-700 mb-2">
+                  Acabamentos Vinculados a este Produto
+                </label>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-2">
+                  {finishings.map(fin => {
+                    const linked = productForm.linkedFinishings.find(lf => lf.finishingName === fin.name);
+                    const isLinked = Boolean(linked);
+
+                    return (
+                      <div key={fin.id} className="py-2 flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isLinked}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setProductForm({
+                                  ...productForm,
+                                  linkedFinishings: [
+                                    ...productForm.linkedFinishings,
+                                    { finishingName: fin.name, isRequired: false, isDefaultSelected: true },
+                                  ],
+                                });
+                              } else {
+                                setProductForm({
+                                  ...productForm,
+                                  linkedFinishings: productForm.linkedFinishings.filter(
+                                    lf => lf.finishingName !== fin.name
+                                  ),
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-blue-600 border-slate-300"
+                          />
+                          <span className="font-bold text-slate-800">{fin.name}</span>
+                        </label>
+
+                        {isLinked && (
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={linked?.isRequired || false}
+                                onChange={e => {
+                                  setProductForm({
+                                    ...productForm,
+                                    linkedFinishings: productForm.linkedFinishings.map(lf =>
+                                      lf.finishingName === fin.name ? { ...lf, isRequired: e.target.checked } : lf
+                                    ),
+                                  });
+                                }}
+                                className="w-3.5 h-3.5 rounded text-rose-600 border-slate-300"
+                              />
+                              <span>Obrigatório</span>
+                            </label>
+
+                            <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={linked?.isDefaultSelected || false}
+                                onChange={e => {
+                                  setProductForm({
+                                    ...productForm,
+                                    linkedFinishings: productForm.linkedFinishings.map(lf =>
+                                      lf.finishingName === fin.name ? { ...lf, isDefaultSelected: e.target.checked } : lf
+                                    ),
+                                  });
+                                }}
+                                className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
+                              />
+                              <span>Auto Marcar</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button type="button" variant="secondary" onClick={() => setIsProductModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary">
+                  Salvar Produto
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL: INSUMO */}
+      {/* ============================================================ */}
+      {isMaterialModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-900">
+                {editingMaterial ? 'Editar Insumo' : 'Novo Insumo / Substrato'}
+              </h3>
+              <button onClick={() => setIsMaterialModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMaterial} className="p-5 space-y-4 text-xs">
+              <Input
+                label="Nome do Insumo *"
+                value={materialForm.name}
+                onChange={e => setMaterialForm({ ...materialForm, name: e.target.value })}
+                placeholder="Ex: Papel Couchê 300g, Lona Frontlight..."
+                required
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Categoria"
+                  value={materialForm.category}
+                  onChange={e => setMaterialForm({ ...materialForm, category: e.target.value })}
+                  placeholder="Ex: Papéis, Lonas..."
+                />
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Unidade de Medida
+                  </label>
+                  <select
+                    value={materialForm.unit}
+                    onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="sheet">Folha (sheet)</option>
+                    <option value="m2">Metro Quadrado (m²)</option>
+                    <option value="kg">Quilograma (kg)</option>
+                    <option value="unit">Unidade (unit)</option>
+                    <option value="roll">Rolo (roll)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Custo Base (R$)"
+                  value={materialForm.costPriceStr}
+                  onChange={e => setMaterialForm({ ...materialForm, costPriceStr: e.target.value })}
+                  placeholder="0,00"
+                />
+                <Input
+                  label="Preço de Venda (R$)"
+                  value={materialForm.salePriceStr}
+                  onChange={e => setMaterialForm({ ...materialForm, salePriceStr: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button type="button" variant="secondary" onClick={() => setIsMaterialModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary">
+                  Salvar Insumo
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL: ACABAMENTO */}
+      {/* ============================================================ */}
+      {isFinishingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-900">
+                {editingFinishing ? 'Editar Acabamento Técnico' : 'Novo Acabamento Técnico'}
+              </h3>
+              <button onClick={() => setIsFinishingModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFinishing} className="p-5 space-y-4 text-xs">
+              <Input
+                label="Nome do Acabamento *"
+                value={finishingForm.name}
+                onChange={e => setFinishingForm({ ...finishingForm, name: e.target.value })}
+                placeholder="Ex: Corte Reto, Laminação Fosca..."
+                required
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Forma de Cobrança
+                  </label>
+                  <select
+                    value={finishingForm.pricingMethod}
+                    onChange={e => setFinishingForm({ ...finishingForm, pricingMethod: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="unit">Por Unidade</option>
+                    <option value="area_m2">Por Metro Quadrado (m²)</option>
+                    <option value="linear_meter">Por Metro Linear</option>
+                    <option value="mil">Por Milheiro</option>
+                    <option value="fixed">Valor Fixo</option>
+                  </select>
+                </div>
+
+                <Input
+                  label="Valor / Custo (R$)"
+                  value={finishingForm.costPriceStr}
+                  onChange={e => setFinishingForm({ ...finishingForm, costPriceStr: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={finishingForm.isRequired}
+                    onChange={e => setFinishingForm({ ...finishingForm, isRequired: e.target.checked })}
+                    className="w-4 h-4 rounded text-rose-600 border-slate-300"
+                  />
+                  <span className="font-bold text-slate-800">Acabamento Obrigatório</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={finishingForm.isDefaultSelected}
+                    onChange={e => setFinishingForm({ ...finishingForm, isDefaultSelected: e.target.checked })}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300"
+                  />
+                  <span className="font-bold text-slate-800">Selecionar Automaticamente ao Adicionar Produto</span>
+                </label>
+              </div>
+
+              <Input
+                label="Produtos Compatíveis (Opcional, separados por vírgula)"
+                value={finishingForm.compatibleProductsText}
+                onChange={e => setFinishingForm({ ...finishingForm, compatibleProductsText: e.target.value })}
+                placeholder="Ex: Cartão de Visita, Folder, Banner"
+              />
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button type="button" variant="secondary" onClick={() => setIsFinishingModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary">
+                  Salvar Acabamento
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

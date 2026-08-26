@@ -1,0 +1,1855 @@
+/**
+ * @file NewQuotePage.tsx
+ * @description Elaboração e Precificação de Orçamentos Gráficos, Acabamentos Vinculados, Fluxo de Desconto com Confirmação e Vendedor/Comissão Opcionais ao Final
+ * @project OrçaGraf
+ */
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  Percent,
+  CreditCard,
+  Building2,
+  Calendar,
+  AlertTriangle,
+  User as UserIcon,
+  Package,
+  Search,
+  CheckCircle2,
+  Layers,
+  Scissors,
+  Maximize2,
+  Lock,
+  ChevronDown,
+  Check,
+  Info,
+  UserCheck,
+  Edit3,
+  X,
+  DollarSign,
+} from 'lucide-react';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { useTenant } from '../context/TenantContext';
+import { useCommercial } from '../context/CommercialContext';
+import { useNotification } from '../context/NotificationContext';
+import {
+  QuoteDiscountType,
+  PaymentMethod,
+  PaymentCondition,
+  QuoteItemFinishing,
+} from '../types/quote';
+import {
+  Product,
+  CalculationUnit,
+  PRODUCT_CATEGORIES,
+  Finishing,
+} from '../types/product';
+import { User, hasUserPermission } from '../types/tenant';
+import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
+import { calculateInstallments } from '../domain/financial-calculations';
+import { calculateProductPrice } from '../domain/product-catalog';
+
+interface NewQuotePageProps {
+  onBack: () => void;
+  onSuccess: () => void;
+}
+
+export interface FormQuoteItemFinishing {
+  finishingId: string;
+  name: string;
+  unitPriceCents: number;
+  totalPriceCents: number;
+  isRequired: boolean;
+  isOptional: boolean;
+  selected: boolean;
+  quantity?: number;
+  notes?: string;
+  hasPriceConfigured: boolean;
+}
+
+interface FormQuoteItem {
+  id: string;
+  productId?: string;
+  isCustom: boolean;
+  productName: string;
+  category?: string;
+  calculationUnit: CalculationUnit;
+  quantity: number;
+  widthMm?: number;
+  heightMm?: number;
+  areaM2?: number;
+  materialName: string;
+  availableMaterials: string[];
+  finishings: FormQuoteItemFinishing[];
+  unitCostCents: number;
+  unitPriceCents: number;
+  unitPriceStr: string;
+  totalPriceCents: number;
+  hasPriceConfigured: boolean;
+  notes?: string;
+}
+
+interface AppliedDiscountState {
+  type: QuoteDiscountType;
+  value: number; // Porcentagem numérica ou valor em centavos
+  appliedAmountCents: number;
+  reason?: string;
+  userId?: string;
+  userName?: string;
+  appliedAt?: string;
+}
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  pix: 'Pix (Transferência Instantânea)',
+  credit_card: 'Cartão de Crédito',
+  debit_card: 'Cartão de Débito',
+  cash: 'Dinheiro em Espécie',
+  bank_slip: 'Boleto Bancário',
+  bank_transfer: 'Transferência Bancária (TED/DOC)',
+  to_be_defined: 'A Combinar com o Cliente',
+};
+
+const PAYMENT_CONDITION_LABELS: Record<PaymentCondition, string> = {
+  in_cash: 'À Vista',
+  down_payment_and_balance: 'Entrada + Saldo Parcelado',
+  installments: 'Parcelado sem Entrada',
+  to_be_defined: 'A Combinar',
+};
+
+export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess }) => {
+  const { currentCompany, currentUser, companyUsers } = useTenant();
+  const { products, finishings: catalogFinishings, createQuote } = useCommercial();
+  const { showNotice } = useNotification();
+
+  // ==========================================
+  // 1. DADOS DO CLIENTE
+  // ==========================================
+  const [customerName, setCustomerName] = useState('');
+  const [customerContact, setCustomerContact] = useState('');
+  const [customerDocument, setCustomerDocument] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+
+  // ==========================================
+  // 2. ITENS DO ORÇAMENTO E ACABAMENTOS
+  // ==========================================
+  const [items, setItems] = useState<FormQuoteItem[]>([]);
+
+  // Modal / Gaveta de Seleção de Produto do Catálogo
+  const [isCatalogPickerOpen, setIsCatalogPickerOpen] = useState(false);
+  const [pickerTargetItemId, setPickerTargetItemId] = useState<string | null>(null);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('all');
+
+  // Prazo de Produção
+  const [productionDays, setProductionDays] = useState(
+    currentCompany.customization?.defaultProductionDays || 3
+  );
+
+  // ==========================================
+  // 3. DESCONTO COMERCIAL (COM FLUXO DE APLICAÇÃO EXPLÍCITA)
+  // ==========================================
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscountState | null>(null);
+
+  // Inputs do formulário de desconto em digitação
+  const [discountTypeInput, setDiscountTypeInput] = useState<QuoteDiscountType>('percentage');
+  const [discountValueInput, setDiscountValueInput] = useState('');
+  const [discountReasonInput, setDiscountReasonInput] = useState('');
+  const [isEditingDiscount, setIsEditingDiscount] = useState(true);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [isRemoveDiscountModalOpen, setIsRemoveDiscountModalOpen] = useState(false);
+
+  // ==========================================
+  // 4. CONDIÇÕES FINANCEIRAS
+  // ==========================================
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
+  const [paymentCondition, setPaymentCondition] = useState<PaymentCondition>('in_cash');
+  const [installmentsCount, setInstallmentsCount] = useState(1);
+  const [downPaymentStr, setDownPaymentStr] = useState('');
+  const [expectedDownPaymentDate, setExpectedDownPaymentDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [installmentIntervalDays, setInstallmentIntervalDays] = useState(30);
+  const [financialNotes, setFinancialNotes] = useState('');
+
+  // ==========================================
+  // 5. VENDEDOR E COMISSÃO — OPCIONAL (AO FINAL DO FORMULÁRIO)
+  // ==========================================
+  // Lista de usuários ativos da empresa atual (strict tenant isolation)
+  const activeSellers = useMemo(() => {
+    return companyUsers.filter(u => u.tenantId === currentCompany.id && u.isActive);
+  }, [companyUsers, currentCompany.id]);
+
+  // Vendedor opcional: inicializa vazio (null) sem preenchimento automático forçado
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [sellerSearchTerm, setSellerSearchTerm] = useState('');
+  const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
+  const sellerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Campos opcionais de comissão
+  const [commissionRatePercentInput, setCommissionRatePercentInput] = useState('');
+  const [commissionAmountInput, setCommissionAmountInput] = useState('');
+
+  const selectedSeller = useMemo(() => {
+    if (!selectedSellerId) return null;
+    return activeSellers.find(u => u.id === selectedSellerId) || null;
+  }, [activeSellers, selectedSellerId]);
+
+  // Fecha dropdown do vendedor ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sellerDropdownRef.current && !sellerDropdownRef.current.contains(event.target as Node)) {
+        setIsSellerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredSellers = useMemo(() => {
+    if (!sellerSearchTerm.trim()) return activeSellers;
+    const term = sellerSearchTerm.toLowerCase();
+    return activeSellers.filter(
+      u =>
+        u.name.toLowerCase().includes(term) ||
+        u.email.toLowerCase().includes(term) ||
+        (u.baseProfile && u.baseProfile.toLowerCase().includes(term))
+    );
+  }, [activeSellers, sellerSearchTerm]);
+
+  // Lista de produtos ativos da gráfica para seleção
+  const activeProducts = useMemo(() => {
+    return products.filter(p => p.isActive);
+  }, [products]);
+
+  // Produtos filtrados no modal de busca do catálogo
+  const filteredCatalogProducts = useMemo(() => {
+    return activeProducts.filter(p => {
+      const matchSearch =
+        p.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+        p.sku.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+        p.shortDescription.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+        p.defaultMaterial.toLowerCase().includes(catalogSearch.toLowerCase());
+
+      const matchCat = catalogCategoryFilter === 'all' || p.category === catalogCategoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [activeProducts, catalogSearch, catalogCategoryFilter]);
+
+  // Converte vínculos de acabamentos do produto em acabamentos do formulário
+  const buildFinishingsForProduct = (product: Product, currentQty: number): FormQuoteItemFinishing[] => {
+    const list: FormQuoteItemFinishing[] = [];
+
+    if (product.linkedFinishings && product.linkedFinishings.length > 0) {
+      product.linkedFinishings
+        .filter(lf => lf.isActive !== false)
+        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+        .forEach(lf => {
+          const matchedCatalog = catalogFinishings.find(
+            cf => cf.name.toLowerCase() === lf.finishingName.toLowerCase()
+          );
+
+          const unitPrice = matchedCatalog?.costPriceCents || 0;
+          const isReq = Boolean(lf.isRequired);
+          const isDefSel = Boolean(lf.isDefaultSelected);
+          const isSelected = isReq || isDefSel;
+
+          list.push({
+            finishingId: lf.finishingId || `fin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            name: lf.finishingName,
+            unitPriceCents: unitPrice,
+            totalPriceCents: unitPrice * currentQty,
+            isRequired: isReq,
+            isOptional: !isReq,
+            selected: isSelected,
+            quantity: currentQty,
+            notes: '',
+            hasPriceConfigured: unitPrice > 0,
+          });
+        });
+    }
+
+    return list;
+  };
+
+  const createItemFromProduct = (product: Product): FormQuoteItem => {
+    const qty = product.defaultQuantity || 1;
+    const calc = calculateProductPrice({
+      calculationUnit: product.calculationUnit,
+      salePriceCents: product.salePriceCents,
+      quantity: qty,
+      widthMm: product.defaultWidthMm,
+      heightMm: product.defaultHeightMm,
+      minSalePriceCents: product.minSalePriceCents,
+    });
+
+    const finishings = buildFinishingsForProduct(product, qty);
+
+    return {
+      id: `it_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      productId: product.id,
+      isCustom: false,
+      productName: product.name,
+      category: product.category,
+      calculationUnit: product.calculationUnit,
+      quantity: qty,
+      widthMm: product.defaultWidthMm,
+      heightMm: product.defaultHeightMm,
+      areaM2: calc.areaM2,
+      materialName: product.defaultMaterial || '',
+      availableMaterials: product.availableMaterials || (product.defaultMaterial ? [product.defaultMaterial] : []),
+      finishings,
+      unitCostCents: product.baseCostCents,
+      unitPriceCents: calc.unitPriceCents,
+      unitPriceStr: (calc.unitPriceCents / 100).toFixed(2).replace('.', ','),
+      totalPriceCents: calc.totalPriceCents,
+      hasPriceConfigured: product.hasPriceConfigured,
+      notes: '',
+    };
+  };
+
+  // Inicializa o primeiro item com o primeiro produto ativo do catálogo ou personalizado
+  useEffect(() => {
+    if (items.length === 0) {
+      if (activeProducts.length > 0) {
+        setItems([createItemFromProduct(activeProducts[0])]);
+      } else {
+        handleAddCustomItem();
+      }
+    }
+  }, [activeProducts]);
+
+  // Adicionar item a partir do catálogo (abre picker)
+  const handleOpenCatalogPicker = (targetItemId?: string) => {
+    setPickerTargetItemId(targetItemId || null);
+    setCatalogSearch('');
+    setCatalogCategoryFilter('all');
+    setIsCatalogPickerOpen(true);
+  };
+
+  // Adicionar Item Personalizado / Avulso
+  const handleAddCustomItem = () => {
+    const newItem: FormQuoteItem = {
+      id: `it_custom_${Date.now()}`,
+      isCustom: true,
+      productName: '',
+      calculationUnit: 'unit',
+      quantity: 1,
+      materialName: '',
+      availableMaterials: [],
+      finishings: [],
+      unitCostCents: 0,
+      unitPriceCents: 0,
+      unitPriceStr: '',
+      totalPriceCents: 0,
+      hasPriceConfigured: false,
+      notes: '',
+    };
+    setItems(prev => [...prev, newItem]);
+  };
+
+  // Selecionar produto no picker
+  const handleSelectProductFromCatalog = (product: Product) => {
+    const newItem = createItemFromProduct(product);
+
+    if (pickerTargetItemId) {
+      setItems(prev =>
+        prev.map(it => {
+          if (it.id === pickerTargetItemId) {
+            return {
+              ...newItem,
+              notes: it.notes || newItem.notes,
+            };
+          }
+          return it;
+        })
+      );
+    } else {
+      setItems(prev => [...prev, newItem]);
+    }
+
+    setIsCatalogPickerOpen(false);
+    setPickerTargetItemId(null);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    if (items.length === 1) {
+      showNotice('Item Mínimo', 'O orçamento precisa ter pelo menos um item.', 'warning');
+      return;
+    }
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  // Alternar acabamento selecionado
+  const handleToggleFinishing = (itemId: string, finishingName: string) => {
+    setItems(prev =>
+      prev.map(it => {
+        if (it.id !== itemId) return it;
+
+        const updatedFinishings = it.finishings.map(fin => {
+          if (fin.name === finishingName) {
+            if (fin.isRequired) {
+              showNotice(
+                'Acabamento Obrigatório',
+                `O acabamento "${fin.name}" é requisito técnico de produção deste item e não pode ser removido.`,
+                'warning'
+              );
+              return fin;
+            }
+            return { ...fin, selected: !fin.selected };
+          }
+          return fin;
+        });
+
+        return { ...it, finishings: updatedFinishings };
+      })
+    );
+  };
+
+  // Adicionar acabamento avulso do catálogo a um item
+  const handleAddFinishingToItem = (itemId: string, finishing: Finishing) => {
+    setItems(prev =>
+      prev.map(it => {
+        if (it.id !== itemId) return it;
+
+        if (it.finishings.some(f => f.name.toLowerCase() === finishing.name.toLowerCase())) {
+          showNotice('Acabamento Existente', `O acabamento "${finishing.name}" já está na lista deste item.`, 'info');
+          return it;
+        }
+
+        const newFin: FormQuoteItemFinishing = {
+          finishingId: finishing.id,
+          name: finishing.name,
+          unitPriceCents: finishing.costPriceCents || 0,
+          totalPriceCents: (finishing.costPriceCents || 0) * it.quantity,
+          isRequired: false,
+          isOptional: true,
+          selected: true,
+          quantity: it.quantity,
+          hasPriceConfigured: (finishing.costPriceCents || 0) > 0,
+        };
+
+        return { ...it, finishings: [...it.finishings, newFin] };
+      })
+    );
+  };
+
+  // Atualiza campo do item e recalcula automaticamente valores
+  const handleUpdateItem = (id: string, field: keyof FormQuoteItem, value: any) => {
+    setItems(prev =>
+      prev.map(item => {
+        if (item.id !== id) return item;
+
+        const updated = { ...item, [field]: value };
+
+        if (field === 'unitPriceStr') {
+          const parsedCents = parseBRLToCents(value);
+          updated.unitPriceCents = parsedCents;
+          updated.totalPriceCents = parsedCents * updated.quantity;
+          updated.hasPriceConfigured = parsedCents > 0;
+          return updated;
+        }
+
+        if (field === 'quantity' || field === 'widthMm' || field === 'heightMm') {
+          const qty = field === 'quantity' ? Math.max(1, Number(value) || 1) : item.quantity;
+          const w = field === 'widthMm' ? Number(value) || undefined : item.widthMm;
+          const h = field === 'heightMm' ? Number(value) || undefined : item.heightMm;
+
+          const linkedProduct = products.find(p => p.id === item.productId);
+          if (linkedProduct && linkedProduct.hasPriceConfigured) {
+            const calc = calculateProductPrice({
+              calculationUnit: item.calculationUnit,
+              salePriceCents: linkedProduct.salePriceCents,
+              quantity: qty,
+              widthMm: w,
+              heightMm: h,
+              minSalePriceCents: linkedProduct.minSalePriceCents,
+            });
+            updated.quantity = qty;
+            updated.widthMm = w;
+            updated.heightMm = h;
+            updated.areaM2 = calc.areaM2;
+            updated.unitPriceCents = calc.unitPriceCents;
+            updated.unitPriceStr = (calc.unitPriceCents / 100).toFixed(2).replace('.', ',');
+            updated.totalPriceCents = calc.totalPriceCents;
+            return updated;
+          } else {
+            updated.quantity = qty;
+            updated.totalPriceCents = updated.unitPriceCents * qty;
+            return updated;
+          }
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  // Subtotal da Proposta
+  const subtotalCents = useMemo(() => {
+    return items.reduce((acc, it) => acc + (it.totalPriceCents || 0), 0);
+  }, [items]);
+
+  // Desconto Efetivamente Aplicado
+  const appliedDiscountCents = useMemo(() => {
+    if (!appliedDiscount) return 0;
+    if (appliedDiscount.type === 'percentage') {
+      const calculated = Math.round((subtotalCents * appliedDiscount.value) / 100);
+      return Math.min(subtotalCents, calculated);
+    }
+    if (appliedDiscount.type === 'fixed') {
+      return Math.min(subtotalCents, appliedDiscount.value);
+    }
+    return 0;
+  }, [appliedDiscount, subtotalCents]);
+
+  // Total Final Oficial da Proposta
+  const totalFinalCents = Math.max(0, subtotalCents - appliedDiscountCents);
+
+  // Prévia em tempo real do formulário de desconto enquanto o usuário digita
+  const discountDraftPreview = useMemo(() => {
+    if (discountTypeInput === 'none') {
+      return { discountCents: 0, previewTotalCents: subtotalCents, valid: true };
+    }
+    if (discountTypeInput === 'percentage') {
+      const val = parseFloat(discountValueInput.replace(',', '.')) || 0;
+      if (val <= 0) return { discountCents: 0, previewTotalCents: subtotalCents, valid: false };
+      if (val > 100) return { discountCents: 0, previewTotalCents: subtotalCents, valid: false, error: 'Máximo 100%' };
+      const calc = Math.round((subtotalCents * val) / 100);
+      return {
+        discountCents: calc,
+        previewTotalCents: Math.max(0, subtotalCents - calc),
+        valid: true,
+      };
+    }
+    if (discountTypeInput === 'fixed') {
+      const cents = parseBRLToCents(discountValueInput);
+      if (cents <= 0) return { discountCents: 0, previewTotalCents: subtotalCents, valid: false };
+      if (cents > subtotalCents) {
+        return {
+          discountCents: cents,
+          previewTotalCents: 0,
+          valid: false,
+          error: 'Maior que o subtotal',
+        };
+      }
+      return {
+        discountCents: cents,
+        previewTotalCents: Math.max(0, subtotalCents - cents),
+        valid: true,
+      };
+    }
+    return { discountCents: 0, previewTotalCents: subtotalCents, valid: true };
+  }, [discountTypeInput, discountValueInput, subtotalCents]);
+
+  // Ação de Aplicar Desconto (Validação Estrita)
+  const handleApplyDiscount = () => {
+    setDiscountError(null);
+
+    if (discountTypeInput === 'none') {
+      setAppliedDiscount(null);
+      setIsEditingDiscount(false);
+      showNotice('Desconto', 'Nenhum desconto aplicado à proposta.', 'info');
+      return;
+    }
+
+    if (discountTypeInput === 'percentage') {
+      const percent = parseFloat(discountValueInput.replace(',', '.'));
+      if (isNaN(percent) || percent <= 0) {
+        setDiscountError('Informe uma porcentagem de desconto válida e maior que zero.');
+        return;
+      }
+      if (percent > 100) {
+        setDiscountError('A porcentagem de desconto não pode ultrapassar 100%.');
+        return;
+      }
+
+      const calculatedCents = Math.round((subtotalCents * percent) / 100);
+      setAppliedDiscount({
+        type: 'percentage',
+        value: percent,
+        appliedAmountCents: calculatedCents,
+        reason: discountReasonInput.trim() || undefined,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        appliedAt: new Date().toISOString(),
+      });
+      setIsEditingDiscount(false);
+      showNotice(
+        'Desconto Aplicado',
+        `Desconto de ${percent}% (${formatCentsToBRL(calculatedCents)}) aplicado com sucesso.`,
+        'success'
+      );
+      return;
+    }
+
+    if (discountTypeInput === 'fixed') {
+      const fixedCents = parseBRLToCents(discountValueInput);
+      if (fixedCents <= 0) {
+        setDiscountError('Informe um valor de desconto válido e maior que zero.');
+        return;
+      }
+      if (fixedCents > subtotalCents) {
+        setDiscountError(
+          `O desconto (${formatCentsToBRL(fixedCents)}) não pode ser superior ao subtotal da proposta (${formatCentsToBRL(subtotalCents)}).`
+        );
+        return;
+      }
+
+      setAppliedDiscount({
+        type: 'fixed',
+        value: fixedCents,
+        appliedAmountCents: fixedCents,
+        reason: discountReasonInput.trim() || undefined,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        appliedAt: new Date().toISOString(),
+      });
+      setIsEditingDiscount(false);
+      showNotice(
+        'Desconto Aplicado',
+        `Desconto de ${formatCentsToBRL(fixedCents)} aplicado com sucesso.`,
+        'success'
+      );
+    }
+  };
+
+  // Abrir edição de desconto
+  const handleStartEditDiscount = () => {
+    if (appliedDiscount) {
+      setDiscountTypeInput(appliedDiscount.type);
+      setDiscountValueInput(
+        appliedDiscount.type === 'percentage'
+          ? String(appliedDiscount.value).replace('.', ',')
+          : (appliedDiscount.value / 100).toFixed(2).replace('.', ',')
+      );
+      setDiscountReasonInput(appliedDiscount.reason || '');
+    }
+    setDiscountError(null);
+    setIsEditingDiscount(true);
+  };
+
+  // Confirmar remoção de desconto
+  const handleConfirmRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountTypeInput('percentage');
+    setDiscountValueInput('');
+    setDiscountReasonInput('');
+    setIsEditingDiscount(true);
+    setIsRemoveDiscountModalOpen(false);
+    setDiscountError(null);
+    showNotice('Desconto Removido', 'O desconto comercial foi removido e o total original restaurado.', 'info');
+  };
+
+  const downPaymentCents = useMemo(() => {
+    if (paymentCondition !== 'down_payment_and_balance') return 0;
+    return Math.min(totalFinalCents, parseBRLToCents(downPaymentStr));
+  }, [paymentCondition, downPaymentStr, totalFinalCents]);
+
+  // Parcelas Calculadas
+  const calculatedInstallments = useMemo(() => {
+    return calculateInstallments(
+      totalFinalCents,
+      paymentCondition,
+      installmentsCount,
+      downPaymentCents,
+      installmentIntervalDays,
+      expectedDownPaymentDate
+    );
+  }, [
+    totalFinalCents,
+    paymentCondition,
+    installmentsCount,
+    downPaymentCents,
+    installmentIntervalDays,
+    expectedDownPaymentDate,
+  ]);
+
+  const getProfileLabel = (profile?: string, role?: string): string => {
+    const p = profile || role || 'sales';
+    switch (p) {
+      case 'admin':
+      case 'owner':
+        return 'Administrador / Gestor';
+      case 'sales':
+        return 'Comercial / Vendas';
+      case 'reception':
+        return 'Recepção / Atendimento';
+      case 'production':
+        return 'Produção / PCP';
+      default:
+        return 'Atendimento';
+    }
+  };
+
+  const getInitials = (name: string): string => {
+    const parts = name.trim().split(' ').filter(Boolean);
+    if (parts.length === 0) return 'V';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerName.trim()) {
+      showNotice('Campo Obrigatório', 'Informe o nome do cliente.', 'warning');
+      return;
+    }
+
+    if (items.length === 0) {
+      showNotice('Itens Ausentes', 'Adicione pelo menos um item ao orçamento.', 'warning');
+      return;
+    }
+
+    const unpricedItem = items.find(it => it.totalPriceCents <= 0 || it.unitPriceCents <= 0);
+    if (unpricedItem) {
+      showNotice(
+        'Item Sem Preço',
+        `O item "${unpricedItem.productName || 'Personalizado'}" está sem preço definido. Informe o valor unitário manualmente para prosseguir.`,
+        'warning'
+      );
+      return;
+    }
+
+    const invalidItem = items.find(it => !it.productName.trim() || it.quantity <= 0);
+    if (invalidItem) {
+      showNotice('Item Incompleto', 'Preencha a descrição e quantidade de todos os itens.', 'warning');
+      return;
+    }
+
+    // Converte os acabamentos selecionados de cada item
+    const formattedItems = items.map(it => {
+      const selectedFinishings: QuoteItemFinishing[] = it.finishings
+        .filter(f => f.selected)
+        .map(f => ({
+          finishingId: f.finishingId,
+          name: f.name,
+          unitPriceCents: f.unitPriceCents || 0,
+          totalPriceCents: f.totalPriceCents || 0,
+          isRequired: f.isRequired,
+          isOptional: f.isOptional,
+          quantity: it.quantity,
+          notes: f.notes,
+        }));
+
+      return {
+        id: it.id,
+        productId: it.productId,
+        productName: it.productName,
+        quantity: it.quantity,
+        widthMm: it.widthMm,
+        heightMm: it.heightMm,
+        areaM2: it.areaM2,
+        materialName: it.materialName,
+        finishings: selectedFinishings,
+        unitCostCents: it.unitCostCents,
+        unitPriceCents: it.unitPriceCents,
+        totalPriceCents: it.totalPriceCents,
+        notes: it.notes,
+      };
+    });
+
+    const parsedCommissionRate = commissionRatePercentInput.trim()
+      ? parseFloat(commissionRatePercentInput.replace(',', '.')) || null
+      : null;
+    const parsedCommissionAmount = commissionAmountInput.trim()
+      ? parseBRLToCents(commissionAmountInput)
+      : null;
+
+    createQuote({
+      customerName: customerName.trim(),
+      customerContact: customerContact.trim() || undefined,
+      customerDocument: customerDocument.trim() || undefined,
+      customerEmail: customerEmail.trim() || undefined,
+      sellerId: selectedSeller ? selectedSeller.id : null,
+      sellerName: selectedSeller ? selectedSeller.name : null,
+      salespersonId: selectedSeller ? selectedSeller.id : null,
+      salespersonName: selectedSeller ? selectedSeller.name : null,
+      commissionRatePercent: parsedCommissionRate,
+      commissionAmountCents: parsedCommissionAmount,
+      items: formattedItems,
+      subtotalCents,
+      discount: appliedDiscount
+        ? {
+            type: appliedDiscount.type,
+            value: appliedDiscount.value,
+            appliedAmountCents: appliedDiscountCents,
+            reason: appliedDiscount.reason,
+            userId: appliedDiscount.userId || currentUser.id,
+            userName: appliedDiscount.userName || currentUser.name,
+            appliedAt: appliedDiscount.appliedAt,
+          }
+        : {
+            type: 'none',
+            value: 0,
+            appliedAmountCents: 0,
+          },
+      totalCents: totalFinalCents,
+      estimatedProductionDays: productionDays,
+      paymentTerms: `${PAYMENT_CONDITION_LABELS[paymentCondition]} via ${PAYMENT_METHOD_LABELS[paymentMethod]}`,
+      financialTerms: {
+        paymentMethod,
+        paymentCondition,
+        installmentsCount: paymentCondition === 'in_cash' ? 1 : installmentsCount,
+        downPaymentCents,
+        expectedDownPaymentDate,
+        installmentIntervalDays,
+        financialNotes,
+        installments: calculatedInstallments,
+      },
+    });
+
+    onSuccess();
+  };
+
+  return (
+    <form onSubmit={handleSave} className="space-y-6">
+      {/* Header com Ações */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer shadow-xs"
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Novo Orçamento</h1>
+            <p className="text-sm text-slate-500">
+              Elaboração de proposta comercial com catálogo oficial, acabamentos técnicos e precificação.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="secondary" onClick={onBack}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" icon={<Save className="w-4 h-4" />}>
+            Salvar Orçamento
+          </Button>
+        </div>
+      </div>
+
+      {/* 1. Identificação do Cliente */}
+      <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-slate-800">
+            <UserIcon className="w-4 h-4 text-blue-600" />
+            <h2 className="text-sm font-bold uppercase tracking-wider">
+              Dados do Cliente
+            </h2>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-400">
+            Campos marcados com * são obrigatórios
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Input
+            label="Nome do Cliente / Razão Social *"
+            value={customerName}
+            onChange={e => setCustomerName(e.target.value)}
+            placeholder="Ex: Studio Beleza & Estética"
+            required
+          />
+          <Input
+            label="WhatsApp / Telefone de Contato"
+            value={customerContact}
+            onChange={e => setCustomerContact(e.target.value)}
+            placeholder="(11) 98888-7777"
+          />
+          <Input
+            label="CPF / CNPJ"
+            value={customerDocument}
+            onChange={e => setCustomerDocument(e.target.value)}
+            placeholder="00.000.000/0001-00"
+          />
+          <Input
+            label="E-mail de Contato"
+            type="email"
+            value={customerEmail}
+            onChange={e => setCustomerEmail(e.target.value)}
+            placeholder="contato@cliente.com.br"
+          />
+        </div>
+      </Card>
+
+      {/* 2. Itens do Orçamento e Acabamentos */}
+      <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-slate-800">
+            <Layers className="w-4 h-4 text-blue-600" />
+            <h2 className="text-sm font-bold uppercase tracking-wider">
+              Itens da Proposta Gráfica ({items.length})
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              icon={<Package className="w-3.5 h-3.5 text-blue-600" />}
+              onClick={() => handleOpenCatalogPicker()}
+            >
+              + Adicionar do Catálogo
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={handleAddCustomItem}
+            >
+              Item Avulso
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {items.map((item, index) => {
+            const isAreaUnit = item.calculationUnit === 'm2';
+
+            return (
+              <div
+                key={item.id}
+                className="p-5 rounded-2xl bg-slate-50/60 border border-slate-200/90 space-y-4 transition-all hover:border-slate-300"
+              >
+                {/* Linha 1: Cabeçalho do Item */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/60">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                      {index + 1}
+                    </span>
+
+                    <div className="flex-1 min-w-0">
+                      {item.isCustom ? (
+                        <input
+                          type="text"
+                          value={item.productName}
+                          onChange={e => handleUpdateItem(item.id, 'productName', e.target.value)}
+                          placeholder="Descrição do produto gráfico personalizado..."
+                          className="w-full font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-blue-500 focus:outline-none pb-0.5"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm text-slate-900">
+                            {item.productName}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCatalogPicker(item.id)}
+                            className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                          >
+                            Trocar produto
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Total do Item
+                      </div>
+                      <div className="text-base font-black text-slate-900 font-mono">
+                        {formatCentsToBRL(item.totalPriceCents)}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Remover este item"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Linha 2: Especificações Técnicas e Preço */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Quantidade
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.quantity}
+                      onChange={e => handleUpdateItem(item.id, 'quantity', e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {isAreaUnit ? (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Largura (mm)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.widthMm || ''}
+                          onChange={e => handleUpdateItem(item.id, 'widthMm', e.target.value)}
+                          placeholder="Ex: 1000"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Altura (mm)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.heightMm || ''}
+                          onChange={e => handleUpdateItem(item.id, 'heightMm', e.target.value)}
+                          placeholder="Ex: 2000"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Substrato / Papel
+                      </label>
+                      {item.availableMaterials && item.availableMaterials.length > 1 ? (
+                        <select
+                          value={item.materialName}
+                          onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {item.availableMaterials.map(mat => (
+                            <option key={mat} value={mat}>
+                              {mat}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={item.materialName}
+                          onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
+                          placeholder="Ex: Papel Couché 150g"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {isAreaUnit && (
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Substrato
+                      </label>
+                      <input
+                        type="text"
+                        value={item.materialName}
+                        onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
+                        placeholder="Ex: Lona Frontlight 440g"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Preço Unitário (R$)
+                    </label>
+                    <input
+                      type="text"
+                      value={item.unitPriceStr}
+                      onChange={e => handleUpdateItem(item.id, 'unitPriceStr', e.target.value)}
+                      placeholder="0,00"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 font-bold font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Linha 3: Acabamentos do Item (Estilo Sem Vermelho: Azul para Obrigatório, Turquesa para Selecionado, Cinza Claro para Opcional) */}
+                <div className="pt-2 border-t border-slate-200/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Scissors className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Acabamentos Técnicos do Item</span>
+                    </div>
+
+                    {catalogFinishings.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <select
+                          className="text-[11px] px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 cursor-pointer outline-none hover:bg-slate-100"
+                          defaultValue=""
+                          onChange={e => {
+                            if (!e.target.value) return;
+                            const fin = catalogFinishings.find(f => f.id === e.target.value);
+                            if (fin) handleAddFinishingToItem(item.id, fin);
+                            e.target.value = '';
+                          }}
+                        >
+                          <option value="" disabled>
+                            + Adicionar outro acabamento...
+                          </option>
+                          {catalogFinishings
+                            .filter(
+                              cf =>
+                                cf.isActive &&
+                                !item.finishings.some(
+                                  f => f.name.toLowerCase() === cf.name.toLowerCase()
+                                )
+                            )
+                            .map(cf => (
+                              <option key={cf.id} value={cf.id}>
+                                {cf.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {item.finishings.length === 0 ? (
+                    <div className="text-xs text-slate-400 py-1">
+                      Nenhum acabamento vinculado ou selecionado para este produto.
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      {item.finishings.map(fin => {
+                        return (
+                          <div
+                            key={fin.name}
+                            onClick={() => handleToggleFinishing(item.id, fin.name)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer select-none ${
+                              fin.isRequired
+                                ? 'bg-blue-50/90 text-blue-800 border-blue-200 cursor-default'
+                                : fin.selected
+                                ? 'bg-teal-50 text-teal-800 border-teal-300 shadow-2xs'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
+                            }`}
+                          >
+                            {fin.isRequired ? (
+                              <Lock className="w-3 h-3 text-blue-600" />
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={fin.selected}
+                                onChange={() => {}}
+                                className="rounded text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 pointer-events-none"
+                              />
+                            )}
+
+                            <span>{fin.name}</span>
+
+                            {fin.isRequired && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold uppercase border border-blue-200/60">
+                                Obrigatório
+                              </span>
+                            )}
+
+                            {fin.selected && !fin.hasPriceConfigured && (
+                              <span
+                                className="text-[9px] text-slate-500 bg-slate-100 px-1 py-0.2 rounded font-medium"
+                                title="Acabamento sem custo adicional configurado"
+                              >
+                                R$ 0,00
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Linha 4: Observações Técnicas */}
+                <div>
+                  <Input
+                    label="Observações Técnicas / Instruções do Item"
+                    value={item.notes || ''}
+                    onChange={e => handleUpdateItem(item.id, 'notes', e.target.value)}
+                    placeholder="Instruções de corte, dobra, conferência de sangria ou aplicação especial..."
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* 3. Desconto Comercial & Resumo Financeiro */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Seção Desconto Comercial com Botão de Aplicação Explícita */}
+        <Card className="lg:col-span-2 p-6 space-y-5 bg-white border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
+            <div className="flex items-center gap-2">
+              <Percent className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-bold uppercase tracking-wider">Desconto Comercial</h2>
+            </div>
+            {appliedDiscount && (
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Desconto Aplicado
+              </span>
+            )}
+          </div>
+
+          {/* Exibição do Desconto Aplicado (Quando não estiver editando) */}
+          {appliedDiscount && !isEditingDiscount ? (
+            <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-3 animate-in fade-in duration-150">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-bold text-blue-900 block">
+                    {appliedDiscount.type === 'percentage'
+                      ? `Desconto de ${appliedDiscount.value}%`
+                      : `Desconto de Valor Fixo`}
+                  </span>
+                  <div className="text-xl font-black text-blue-700 font-mono mt-0.5">
+                    -{formatCentsToBRL(appliedDiscountCents)}
+                  </div>
+                  {appliedDiscount.reason && (
+                    <p className="text-xs text-slate-600 mt-1 italic">
+                      Motivo: "{appliedDiscount.reason}"
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Aplicado por {appliedDiscount.userName || currentUser.name}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
+                    onClick={handleStartEditDiscount}
+                  >
+                    Editar desconto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-rose-600 hover:bg-rose-50"
+                    icon={<Trash2 className="w-3.5 h-3.5" />}
+                    onClick={() => setIsRemoveDiscountModalOpen(true)}
+                  >
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Formulário de Configuração e Aplicação de Desconto */
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Tipo de Desconto
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'none' as const, label: 'Sem Desconto' },
+                    { id: 'percentage' as const, label: 'Porcentagem (%)' },
+                    { id: 'fixed' as const, label: 'Valor Fixo (R$)' },
+                  ].map(type => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => {
+                        setDiscountTypeInput(type.id);
+                        if (type.id === 'none') {
+                          setDiscountValueInput('');
+                        }
+                        setDiscountError(null);
+                      }}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        discountTypeInput === type.id
+                          ? 'bg-blue-50 text-blue-800 border-blue-300 ring-1 ring-blue-500/20 shadow-xs'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {discountTypeInput !== 'none' && (
+                <div className="space-y-3 animate-in fade-in duration-150">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label={
+                        discountTypeInput === 'percentage'
+                          ? 'Porcentagem de Desconto (%) *'
+                          : 'Valor do Desconto (R$) *'
+                      }
+                      value={discountValueInput}
+                      onChange={e => {
+                        setDiscountValueInput(e.target.value);
+                        setDiscountError(null);
+                      }}
+                      placeholder={discountTypeInput === 'percentage' ? 'Ex: 10' : 'Ex: 25,00'}
+                      required
+                    />
+                    <Input
+                      label="Motivo Comercial do Desconto (Opcional)"
+                      value={discountReasonInput}
+                      onChange={e => setDiscountReasonInput(e.target.value)}
+                      placeholder="Ex: Parceria comercial, volume de tiragem..."
+                    />
+                  </div>
+
+                  {/* Mensagem de Erro de Validação */}
+                  {discountError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                      <span>{discountError}</span>
+                    </div>
+                  )}
+
+                  {/* Prévia em Tempo Real enquanto digita (Não altera o total até clicar em Aplicar) */}
+                  {discountValueInput.trim() !== '' && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="text-slate-600">
+                        <span className="font-semibold text-slate-800">Prévia do cálculo: </span>
+                        <span className="font-mono text-blue-700 font-bold">
+                          -{formatCentsToBRL(discountDraftPreview.discountCents)}
+                        </span>
+                        {' • '}
+                        <span>Total previsto: </span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {formatCentsToBRL(discountDraftPreview.previewTotalCents)}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        Não aplicado até confirmação
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Botão Oficial: Aplicar Desconto */}
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleApplyDiscount}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-2 active:scale-98"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Aplicar desconto</span>
+                </button>
+
+                {appliedDiscount && isEditingDiscount && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditingDiscount(false)}
+                  >
+                    Cancelar edição
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Prazo de Produção */}
+          <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <div className="flex-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                Prazo Estimado de Produção (Dias Úteis)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={productionDays}
+                onChange={e => setProductionDays(Number(e.target.value))}
+                className="w-32 px-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Card Resumo do Valor Total Oficial */}
+        <Card className="p-6 flex flex-col justify-between bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 border-blue-200/80 shadow-sm space-y-6">
+          <div>
+            <div className="flex items-center gap-2 pb-3 border-b border-blue-100 text-blue-900">
+              <Building2 className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-bold uppercase tracking-wider">Resumo Comercial</h2>
+            </div>
+
+            <div className="mt-4 space-y-2.5 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal ({items.length} {items.length === 1 ? 'item' : 'itens'}):</span>
+                <span className="font-mono font-semibold">{formatCentsToBRL(subtotalCents)}</span>
+              </div>
+
+              {appliedDiscount && (
+                <div className="flex justify-between text-blue-700 font-medium">
+                  <span>
+                    Desconto {appliedDiscount.type === 'percentage' ? `(${appliedDiscount.value}%)` : ''}:
+                  </span>
+                  <span className="font-mono">-{formatCentsToBRL(appliedDiscountCents)}</span>
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-blue-200 flex justify-between items-baseline">
+                <span className="text-xs font-black uppercase tracking-wider text-blue-950">
+                  Total da Proposta
+                </span>
+                <span className="text-2xl font-black text-blue-700 font-mono">
+                  {formatCentsToBRL(totalFinalCents)}
+                </span>
+              </div>
+
+              {selectedSeller && (
+                <div className="pt-2 text-[11px] text-slate-500 flex items-center gap-1.5 border-t border-slate-100">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Vendedor: <strong className="text-slate-800">{selectedSeller.name}</strong></span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Button type="submit" variant="primary" size="lg" className="w-full justify-center">
+            Salvar e Emitir Orçamento
+          </Button>
+        </Card>
+      </div>
+
+      {/* 4. Condições Comerciais e Forma de Pagamento */}
+      <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-slate-800">
+          <CreditCard className="w-4 h-4 text-blue-600" />
+          <h2 className="text-sm font-bold uppercase tracking-wider">
+            Condições Comerciais e Forma de Pagamento
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+              Forma de Pagamento
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+              className="w-full px-3 py-2.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {Object.entries(PAYMENT_METHOD_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+              Condição Comercial
+            </label>
+            <select
+              value={paymentCondition}
+              onChange={e => setPaymentCondition(e.target.value as PaymentCondition)}
+              className="w-full px-3 py-2.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {Object.entries(PAYMENT_CONDITION_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {paymentCondition === 'down_payment_and_balance' && (
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input
+              label="Valor da Entrada (R$)"
+              value={downPaymentStr}
+              onChange={e => setDownPaymentStr(e.target.value)}
+              placeholder="0,00"
+              required
+            />
+            <Input
+              label="Data Prevista da Entrada"
+              type="date"
+              value={expectedDownPaymentDate}
+              onChange={e => setExpectedDownPaymentDate(e.target.value)}
+              required
+            />
+            <Input
+              label="Número de Parcelas do Saldo"
+              type="number"
+              min={1}
+              value={installmentsCount}
+              onChange={e => setInstallmentsCount(Number(e.target.value))}
+              required
+            />
+          </div>
+        )}
+
+        {paymentCondition === 'installments' && (
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Quantidade de Parcelas"
+              type="number"
+              min={2}
+              value={installmentsCount}
+              onChange={e => setInstallmentsCount(Number(e.target.value))}
+              required
+            />
+            <Input
+              label="Intervalo entre Parcelas (Dias)"
+              type="number"
+              min={1}
+              value={installmentIntervalDays}
+              onChange={e => setInstallmentIntervalDays(Number(e.target.value))}
+              required
+            />
+          </div>
+        )}
+
+        <div>
+          <Input
+            label="Observações Comerciais e de Faturamento"
+            value={financialNotes}
+            onChange={e => setFinancialNotes(e.target.value)}
+            placeholder="Ex: 50% antecipado para início de produção e restante na retirada."
+          />
+        </div>
+      </Card>
+
+      {/* 5. VENDEDOR E COMISSÃO — OPCIONAL (POSICIONADO AO FINAL DO FORMULÁRIO) */}
+      <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-slate-800">
+            <UserCheck className="w-4 h-4 text-blue-600" />
+            <h2 className="text-sm font-bold uppercase tracking-wider">
+              Vendedor e comissão — opcional
+            </h2>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-400">
+            Campos opcionais
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {/* Seletor Pesquisável de Vendedor Responsável (Opcional) */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Vendedor Responsável (Opcional)
+            </label>
+
+            <div className="relative" ref={sellerDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsSellerDropdownOpen(prev => !prev)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-left flex items-center justify-between hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition-all cursor-pointer"
+              >
+                {selectedSeller ? (
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                      {getInitials(selectedSeller.name)}
+                    </div>
+                    <div className="truncate">
+                      <div className="font-bold text-xs text-slate-900 truncate">
+                        {selectedSeller.name}
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate">
+                        {getProfileLabel(selectedSeller.baseProfile, selectedSeller.role)} • {selectedSeller.email}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-slate-400 text-xs">
+                    <UserIcon className="w-4 h-4 text-slate-400" />
+                    <span>Nenhum vendedor selecionado (salvar sem vendedor)</span>
+                  </div>
+                )}
+                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
+              </button>
+
+              {/* Dropdown Pesquisável */}
+              {isSellerDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in duration-150">
+                  <div className="p-2 border-b border-slate-100 bg-slate-50">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={sellerSearchTerm}
+                        onChange={e => setSellerSearchTerm(e.target.value)}
+                        placeholder="Buscar vendedor na gráfica..."
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSellerId(null);
+                        setIsSellerDropdownOpen(false);
+                        setSellerSearchTerm('');
+                      }}
+                      className={`w-full p-2.5 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer ${
+                        selectedSellerId === null
+                          ? 'bg-blue-50 text-blue-900'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold text-slate-600">
+                        Sem vendedor vinculado
+                      </div>
+                      {selectedSellerId === null && (
+                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                      )}
+                    </button>
+
+                    {filteredSellers.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-slate-400">
+                        Nenhum usuário ativo encontrado.
+                      </div>
+                    ) : (
+                      filteredSellers.map(seller => (
+                        <button
+                          key={seller.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSellerId(seller.id);
+                            setIsSellerDropdownOpen(false);
+                            setSellerSearchTerm('');
+                          }}
+                          className={`w-full p-2.5 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer ${
+                            seller.id === selectedSellerId
+                              ? 'bg-blue-50 text-blue-900'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
+                              {getInitials(seller.name)}
+                            </div>
+                            <div className="truncate">
+                              <div className="font-bold text-xs text-slate-900 truncate">
+                                {seller.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {getProfileLabel(seller.baseProfile, seller.role)} • {seller.email}
+                              </div>
+                            </div>
+                          </div>
+
+                          {seller.id === selectedSellerId && (
+                            <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Dados Opcionais de Comissão */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <Input
+              label="Porcentagem de Comissão (%) (Opcional)"
+              value={commissionRatePercentInput}
+              onChange={e => setCommissionRatePercentInput(e.target.value)}
+              placeholder="Ex: 5"
+            />
+            <Input
+              label="Valor Fixo de Comissão (R$) (Opcional)"
+              value={commissionAmountInput}
+              onChange={e => setCommissionAmountInput(e.target.value)}
+              placeholder="Ex: 50,00"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Modal de Confirmação de Remoção de Desconto */}
+      {isRemoveDiscountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-slate-900">
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <span className="font-bold text-sm text-slate-900">Remover Desconto</span>
+              <button
+                type="button"
+                onClick={() => setIsRemoveDiscountModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 text-xs text-slate-600 space-y-2">
+              <p>
+                Deseja remover o desconto aplicado? O valor total da proposta será recalculado para o subtotal original sem desconto ({formatCentsToBRL(subtotalCents)}).
+              </p>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
+              <Button variant="ghost" onClick={() => setIsRemoveDiscountModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmRemoveDiscount}
+              >
+                Confirmar Remoção
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL / SELETOR DE PRODUTOS DO CATÁLOGO OFICIAL */}
+      {isCatalogPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-slate-900">
+                <Package className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-black tracking-tight">
+                  Selecione um Produto do Catálogo
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCatalogPickerOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Busca e Filtro de Categoria */}
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <div className="relative w-full sm:flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={catalogSearch}
+                  onChange={e => setCatalogSearch(e.target.value)}
+                  placeholder="Pesquisar por nome, SKU, substrato..."
+                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <select
+                value={catalogCategoryFilter}
+                onChange={e => setCatalogCategoryFilter(e.target.value)}
+                className="w-full sm:w-48 px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Todas as Categorias</option>
+                {PRODUCT_CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Lista de Produtos */}
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+              {filteredCatalogProducts.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Nenhum produto cadastrado corresponde à busca.
+                </div>
+              ) : (
+                filteredCatalogProducts.map(prod => {
+                  const catMeta = PRODUCT_CATEGORIES.find(c => c.id === prod.category);
+                  return (
+                    <div
+                      key={prod.id}
+                      onClick={() => handleSelectProductFromCatalog(prod)}
+                      className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition-all cursor-pointer flex items-center justify-between gap-4 group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10px] font-bold">
+                            {prod.sku}
+                          </span>
+                          <span className="font-extrabold text-sm text-slate-900 group-hover:text-blue-700">
+                            {prod.name}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            • {catMeta?.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          {prod.shortDescription}
+                        </p>
+                        <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
+                          <span>Substrato: <strong className="text-slate-700">{prod.defaultMaterial}</strong></span>
+                          {prod.linkedFinishings && prod.linkedFinishings.length > 0 && (
+                            <span>
+                              Acabamentos: <strong className="text-slate-700">{prod.linkedFinishings.map(lf => lf.finishingName).join(', ')}</strong>
+                            </span>
+                          )}
+                          <span>Prazo: <strong className="text-slate-700">{prod.productionDays}d</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">
+                          Preço ({prod.calculationUnit === 'm2' ? 'm²' : prod.calculationUnit === 'linear_meter' ? 'm. lin.' : 'un'})
+                        </div>
+                        {prod.hasPriceConfigured ? (
+                          <div className="text-base font-black text-slate-900 font-mono">
+                            {formatCentsToBRL(prod.salePriceCents)}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            A Definir
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCatalogPickerOpen(false);
+                  handleAddCustomItem();
+                }}
+                className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Criar Item Personalizado / Fora da Tabela</span>
+              </button>
+
+              <Button type="button" variant="secondary" onClick={() => setIsCatalogPickerOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </form>
+  );
+};
