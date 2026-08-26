@@ -4,7 +4,7 @@
  * @project OrçaGraf
  */
 
-import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
+import { formatCentsToBRL, parseBRLToCents, normalizeMonetaryText } from '../domain/money';
 import {
   calculateQuoteDiscount,
   calculateInstallments,
@@ -346,6 +346,38 @@ export function runAllDomainTests(): { results: TestResult[]; total: number; pas
     totalPriceCents: cartao.salePriceCents * 2,
   };
   assert(quoteItemSnapshot.totalPriceCents === 14000, 'Orçamento existente preserva o valor mesmo com produto desativado', '20. Desativação e Preservação');
+
+  // 21. [Hotfix P3] Formatação Monetária Canônica e Normalização de Eventos
+  const formatted72 = formatCentsToBRL(7200).replace(/\u00a0/g, ' ');
+  const normalized72 = normalizeMonetaryText('Orçamento comercial emitido no valor de R$ 72.00.');
+  assert(
+    formatted72 === 'R$ 72,00' && normalized72 === 'Orçamento comercial emitido no valor de R$ 72,00.',
+    'R$ 72 aparece como "R$ 72,00" tanto no formatador quanto na normalização de mensagens',
+    '21. Formatação Monetária Canônica'
+  );
+
+  const formatted1234 = formatCentsToBRL(123456).replace(/\u00a0/g, ' ');
+  const normalized1234 = normalizeMonetaryText('Orçamento comercial emitido no valor de R$ 1234.56.');
+  assert(
+    formatted1234 === 'R$ 1.234,56' && normalized1234 === 'Orçamento comercial emitido no valor de R$ 1.234,56.',
+    'R$ 1234,56 aparece como "R$ 1.234,56" com separador de milhar e decimal corretos',
+    '21. Formatação Monetária Canônica'
+  );
+
+  const parsed72 = parseBRLToCents('R$ 72,00');
+  const parsed1234 = parseBRLToCents('R$ 1.234,56');
+  assert(
+    parsed72 === 7200 && parsed1234 === 123456,
+    'Centavos inteiros não sofrem alteração de valor numérico na manipulação',
+    '21. Formatação Monetária Canônica'
+  );
+
+  const eventMessage = `Orçamento comercial emitido no valor de ${formatCentsToBRL(7200)}.`;
+  assert(
+    !eventMessage.includes('72.00') && eventMessage.includes('72,00'),
+    'Nenhuma mensagem nova gerada contém o padrão incorreto "R$ 72.00"',
+    '21. Formatação Monetária Canônica'
+  );
 
   const total = results.length;
   const passed = results.filter(r => r.passed).length;

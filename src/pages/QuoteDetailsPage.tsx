@@ -36,7 +36,7 @@ import { useNotification } from '../context/NotificationContext';
 import { getEnvironmentCapabilities } from '../domain/environment-capabilities';
 import { hasUserPermission } from '../types/tenant';
 import { QUOTE_STATUS_METADATA } from '../domain/quote-status';
-import { formatCentsToBRL } from '../domain/money';
+import { formatCentsToBRL, normalizeMonetaryText } from '../domain/money';
 import { formatItemPricingDescription } from '../domain/pricing-engine';
 import { PdfExportService } from '../services/pdf-export.service';
 import { WhatsAppIntegrationService } from '../services/whatsapp-integration.service';
@@ -466,7 +466,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
                         {new Date(ev.createdAt).toLocaleString('pt-BR')}
                       </span>
                     </div>
-                    <p className="text-slate-600 text-[11px]">{ev.description}</p>
+                    <p className="text-slate-600 text-[11px]">{normalizeMonetaryText(ev.description)}</p>
                   </div>
                 ))
               ) : (

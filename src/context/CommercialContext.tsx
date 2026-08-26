@@ -27,6 +27,7 @@ import { ArteFlowIntegrationService } from '../services/arteflow-integration.ser
 import { PdfExportService } from '../services/pdf-export.service';
 import { WhatsAppIntegrationService } from '../services/whatsapp-integration.service';
 import { calculateQuoteTotals } from '../domain/quote-calculator';
+import { formatCentsToBRL } from '../domain/money';
 import { getEnvironmentCapabilities } from '../domain/environment-capabilities';
 import {
   getInitialProductsTemplate,
@@ -852,7 +853,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
           quoteId: `quot_${Date.now()}`,
           tenantId,
           type: 'created',
-          description: `Orçamento comercial emitido no valor de R$ ${(totalFinalCents / 100).toFixed(2)}.`,
+          description: `Orçamento comercial emitido no valor de ${formatCentsToBRL(totalFinalCents)}.`,
           createdAt: now,
           userId: currentUser.id,
           userName: currentUser.name,
@@ -931,7 +932,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
           quoteId: q.id,
           tenantId,
           type: 'discount_applied',
-          description: `Desconto aplicado (${discount.type === 'percentage' ? discount.value + '%' : 'Valor Fixo'}): R$ ${(appliedAmountCents / 100).toFixed(2)}. Motivo: ${discount.reason || 'Negociação comercial'}.`,
+          description: `Desconto aplicado (${discount.type === 'percentage' ? discount.value + '%' : 'Valor Fixo'}): ${formatCentsToBRL(appliedAmountCents)}. Motivo: ${discount.reason || 'Negociação comercial'}.`,
           createdAt: new Date().toISOString(),
           userId: currentUser.id,
           userName: currentUser.name,

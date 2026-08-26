@@ -58,3 +58,15 @@ export function applyPercentageDiscount(totalCents: number, discountPercent: num
   const discountAmount = Math.round((totalCents * discountPercent) / 100);
   return Math.max(0, totalCents - discountAmount);
 }
+
+/**
+ * Normaliza qualquer padrão monetário residual em textos (ex: "R$ 72.00" -> "R$ 72,00", "R$ 1234.56" -> "R$ 1.234,56")
+ */
+export function normalizeMonetaryText(text: string): string {
+  if (!text) return '';
+  return text.replace(/R\$\s?(\d+)\.(\d{2})\b/g, (_match, intPart, decPart) => {
+    const formattedInt = Number(intPart).toLocaleString('pt-BR');
+    return `R$ ${formattedInt},${decPart}`;
+  });
+}
+
