@@ -18,7 +18,7 @@ import {
   QuoteEvent,
   QuoteVersion,
 } from '../types/quote';
-import { Product, Material, Finishing } from '../types/product';
+import { Product, Material, Finishing, FinishingPricingBasis, FinishingPriceStatus } from '../types/product';
 import { Customer } from '../types/customer';
 import { QuoteApprovedEventPayload } from '../types/arteflow';
 import { useTenant } from './TenantContext';
@@ -668,19 +668,28 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   // ==========================================
   const createFinishing = (data: Partial<Finishing>): Finishing => {
     const now = new Date().toISOString();
+    const basis = (data.pricingBasis || data.pricingMethod || 'PER_UNIT') as FinishingPricingBasis;
+    const priceCents = data.priceCents !== undefined ? data.priceCents : (data.costPriceCents || data.salePriceCents || 0);
+    const status: FinishingPriceStatus = data.priceStatus || (priceCents > 0 ? 'CONFIGURED' : data.isRequired ? 'FREE' : 'NOT_CONFIGURED');
+
     const newFin: Finishing = {
       id: `fin_${tenantId}_${Date.now()}`,
       tenantId,
       name: data.name?.trim() || 'Novo Acabamento',
-      pricingMethod: data.pricingMethod || 'unit',
-      costPriceCents: data.costPriceCents || 0,
-      salePriceCents: data.salePriceCents || 0,
+      description: data.description?.trim() || '',
+      pricingBasis: basis,
+      pricingMethod: basis,
+      priceCents,
+      costPriceCents: priceCents,
+      salePriceCents: priceCents,
+      priceStatus: status,
       defaultMarkupPercent: data.defaultMarkupPercent || 0,
       compatibleProducts: data.compatibleProducts || [],
-      isRequired: data.isRequired || false,
-      isDefaultSelected: data.isDefaultSelected || false,
+      isRequired: Boolean(data.isRequired),
+      isDefaultSelected: Boolean(data.isDefaultSelected),
       isActive: data.isActive !== undefined ? data.isActive : true,
       notes: data.notes?.trim() || '',
+      dataOrigin: 'user',
       createdAt: now,
       updatedAt: now,
     };
@@ -695,7 +704,21 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     setAllFinishings(prev =>
       prev.map(f => {
         if (f.id === id && f.tenantId === tenantId) {
-          updated = { ...f, ...data, updatedAt: now };
+          const basis = (data.pricingBasis || data.pricingMethod || f.pricingBasis || f.pricingMethod || 'PER_UNIT') as FinishingPricingBasis;
+          const priceCents = data.priceCents !== undefined ? data.priceCents : (data.costPriceCents !== undefined ? data.costPriceCents : f.priceCents);
+          const status = data.priceStatus || f.priceStatus || (priceCents > 0 ? 'CONFIGURED' : (data.isRequired ?? f.isRequired) ? 'FREE' : 'NOT_CONFIGURED');
+
+          updated = {
+            ...f,
+            ...data,
+            pricingBasis: basis,
+            pricingMethod: basis,
+            priceCents,
+            costPriceCents: priceCents,
+            salePriceCents: priceCents,
+            priceStatus: status,
+            updatedAt: now,
+          };
           return updated;
         }
         return f;

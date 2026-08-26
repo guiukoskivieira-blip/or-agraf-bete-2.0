@@ -14,7 +14,7 @@
  */
 
 import { ArteFlowSyncStatus } from './arteflow';
-import { PricingMode, FinishingPricingBasis } from './product';
+import { PricingMode, FinishingPricingBasis, FinishingPriceStatus } from './product';
 
 export type QuoteStatus = 
   | 'awaiting_customer' // Aguardando cliente
@@ -72,7 +72,10 @@ export interface QuoteItemFinishing {
   name: string;
   pricingBasis?: FinishingPricingBasis;
   unitPriceCents: number;
+  billedQuantity?: number;
   totalPriceCents: number;
+  priceStatus?: FinishingPriceStatus;
+  calculationMemory?: string;
   isRequired?: boolean;
   isOptional?: boolean;
   quantity?: number;

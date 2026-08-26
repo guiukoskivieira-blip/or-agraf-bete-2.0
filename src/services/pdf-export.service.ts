@@ -203,7 +203,14 @@ export class PdfExportService {
       if (item.materialName) specs.push(`Material: ${item.materialName}`);
       if (item.widthMm && item.heightMm) specs.push(`Dimensões: ${item.widthMm} x ${item.heightMm} mm`);
       if (item.finishings && item.finishings.length > 0) {
-        const finishList = item.finishings.map(f => f.name).join(', ');
+        const finishList = item.finishings
+          .map(f => {
+            if (f.totalPriceCents > 0) {
+              return `${f.name} (+${formatCentsToBRL(f.totalPriceCents)})`;
+            }
+            return `${f.name} (Incluso)`;
+          })
+          .join(', ');
         specs.push(`Acabamentos: ${finishList}`);
       }
       if (item.notes) {

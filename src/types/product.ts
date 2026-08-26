@@ -130,22 +130,36 @@ export interface Material {
   updatedAt: string;
 }
 
-export type FinishingPricingBasis = 'fixed' | 'unit' | 'lot' | 'area_m2' | 'linear_meter';
+export type FinishingPricingBasis =
+  | 'FIXED'
+  | 'PER_UNIT'
+  | 'PER_LOT'
+  | 'PER_SQUARE_METER'
+  | 'PER_LINEAR_METER';
+
+export type FinishingPriceStatus =
+  | 'CONFIGURED'
+  | 'NOT_CONFIGURED'
+  | 'FREE';
 
 export interface Finishing {
   id: string;
   tenantId: string;
   name: string;
-  pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter' | 'lot';
-  pricingBasis?: FinishingPricingBasis;
-  costPriceCents: number;
+  description?: string;
+  pricingBasis: FinishingPricingBasis;
+  pricingMethod?: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter' | 'lot' | FinishingPricingBasis;
+  priceCents: number;
+  costPriceCents?: number;
   salePriceCents?: number;
-  defaultMarkupPercent: number;
+  priceStatus: FinishingPriceStatus;
+  defaultMarkupPercent?: number;
   compatibleProducts?: string[]; // Nomes ou SKUs de produtos compatíveis
-  isRequired?: boolean; // Se é obrigatório
+  isRequired?: boolean; // Se é operação técnica obrigatória padrão
   isDefaultSelected?: boolean; // Se deve ser selecionado automaticamente
   isActive: boolean;
   notes?: string;
+  dataOrigin?: 'demo' | 'user';
   createdAt: string;
   updatedAt: string;
 }

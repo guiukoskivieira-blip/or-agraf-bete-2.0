@@ -3,6 +3,7 @@ import { runPrexyonReadinessTests } from './prexyon-readiness.test';
 import { runAllCustomerDomainTestsAsync } from './customer-domain.test';
 import { runPricingEngineTestsAsync } from './pricing-engine.test';
 import { runEnvironmentHonestyTests } from './environment-honesty.test';
+import { runFinishingsEngineTests } from './finishings-engine.test';
 
 async function main() {
   console.log('====================================');
@@ -14,8 +15,9 @@ async function main() {
   const customer = await runAllCustomerDomainTestsAsync();
   const pricing = await runPricingEngineTestsAsync();
   const honesty = runEnvironmentHonestyTests();
+  const finishings = runFinishingsEngineTests();
 
-  const results = [...domain.results, ...prexyon, ...customer, ...pricing, ...honesty];
+  const results = [...domain.results, ...prexyon, ...customer, ...pricing, ...honesty, ...finishings];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;
   const failed = total - passed;

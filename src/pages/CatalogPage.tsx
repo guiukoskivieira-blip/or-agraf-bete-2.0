@@ -40,6 +40,8 @@ import {
   CalculationUnit,
   PricingMode,
   PRICING_MODES,
+  FinishingPricingBasis,
+  FinishingPriceStatus,
 } from '../types/product';
 import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
 import { inferPricingMode } from '../domain/pricing-engine';
@@ -147,18 +149,20 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [editingFinishing, setEditingFinishing] = useState<Finishing | null>(null);
   const [finishingForm, setFinishingForm] = useState<{
     name: string;
-    pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter';
-    costPriceStr: string;
-    salePriceStr: string;
+    description: string;
+    pricingBasis: FinishingPricingBasis;
+    priceType: 'charged' | 'free' | 'not_configured';
+    priceStr: string;
     isRequired: boolean;
     isDefaultSelected: boolean;
     compatibleProductsText: string;
     notes: string;
   }>({
     name: '',
-    pricingMethod: 'unit',
-    costPriceStr: '0,00',
-    salePriceStr: '0,00',
+    description: '',
+    pricingBasis: 'PER_UNIT',
+    priceType: 'not_configured',
+    priceStr: '0,00',
     isRequired: false,
     isDefaultSelected: false,
     compatibleProductsText: '',
@@ -402,9 +406,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     setEditingFinishing(null);
     setFinishingForm({
       name: '',
-      pricingMethod: 'unit',
-      costPriceStr: '0,00',
-      salePriceStr: '0,00',
+      description: '',
+      pricingBasis: 'PER_UNIT',
+      priceType: 'not_configured',
+      priceStr: '0,00',
       isRequired: false,
       isDefaultSelected: false,
       compatibleProductsText: '',
@@ -415,11 +420,19 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const handleOpenEditFinishing = (f: Finishing) => {
     setEditingFinishing(f);
+    const pType: 'charged' | 'free' | 'not_configured' =
+      f.priceStatus === 'FREE'
+        ? 'free'
+        : f.priceStatus === 'CONFIGURED' || (f.priceCents && f.priceCents > 0)
+        ? 'charged'
+        : 'not_configured';
+
     setFinishingForm({
       name: f.name,
-      pricingMethod: f.pricingMethod,
-      costPriceStr: (f.costPriceCents / 100).toFixed(2).replace('.', ','),
-      salePriceStr: ((f.salePriceCents || 0) / 100).toFixed(2).replace('.', ','),
+      description: f.description || '',
+      pricingBasis: f.pricingBasis || (f.pricingMethod as any) || 'PER_UNIT',
+      priceType: pType,
+      priceStr: ((f.priceCents || f.costPriceCents || 0) / 100).toFixed(2).replace('.', ','),
       isRequired: Boolean(f.isRequired),
       isDefaultSelected: Boolean(f.isDefaultSelected),
       compatibleProductsText: f.compatibleProducts ? f.compatibleProducts.join(', ') : '',
@@ -435,8 +448,24 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       return;
     }
 
-    const costPriceCents = parseBRLToCents(finishingForm.costPriceStr);
-    const salePriceCents = parseBRLToCents(finishingForm.salePriceStr);
+    let priceStatus: FinishingPriceStatus = 'NOT_CONFIGURED';
+    let priceCents = 0;
+
+    if (finishingForm.priceType === 'free') {
+      priceStatus = 'FREE';
+      priceCents = 0;
+    } else if (finishingForm.priceType === 'charged') {
+      priceStatus = 'CONFIGURED';
+      priceCents = parseBRLToCents(finishingForm.priceStr);
+      if (priceCents <= 0) {
+        showNotice('Preço Obrigatório', 'Para acabamentos cobrados, informe um valor maior que R$ 0,00.', 'warning');
+        return;
+      }
+    } else {
+      priceStatus = 'NOT_CONFIGURED';
+      priceCents = 0;
+    }
+
     const compatible = finishingForm.compatibleProductsText
       .split(',')
       .map(s => s.trim())
@@ -445,9 +474,13 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     if (editingFinishing) {
       updateFinishing(editingFinishing.id, {
         name: finishingForm.name.trim(),
-        pricingMethod: finishingForm.pricingMethod,
-        costPriceCents,
-        salePriceCents,
+        description: finishingForm.description.trim(),
+        pricingBasis: finishingForm.pricingBasis,
+        pricingMethod: finishingForm.pricingBasis,
+        priceStatus,
+        priceCents,
+        costPriceCents: priceCents,
+        salePriceCents: priceCents,
         isRequired: finishingForm.isRequired,
         isDefaultSelected: finishingForm.isDefaultSelected,
         compatibleProducts: compatible,
@@ -456,9 +489,13 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     } else {
       createFinishing({
         name: finishingForm.name.trim(),
-        pricingMethod: finishingForm.pricingMethod,
-        costPriceCents,
-        salePriceCents,
+        description: finishingForm.description.trim(),
+        pricingBasis: finishingForm.pricingBasis,
+        pricingMethod: finishingForm.pricingBasis,
+        priceStatus,
+        priceCents,
+        costPriceCents: priceCents,
+        salePriceCents: priceCents,
         isRequired: finishingForm.isRequired,
         isDefaultSelected: finishingForm.isDefaultSelected,
         compatibleProducts: compatible,
@@ -805,93 +842,136 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="py-3 px-4">Acabamento</th>
-                  <th className="py-3 px-4">Forma de Cobrança</th>
-                  <th className="py-3 px-4">Custo / Preço</th>
-                  <th className="py-3 px-4">Regras de Seleção</th>
+                  <th className="py-3 px-4">Tipo</th>
+                  <th className="py-3 px-4">Base de Cobrança</th>
+                  <th className="py-3 px-4">Preço Comercial</th>
                   <th className="py-3 px-4">Produtos Compatíveis</th>
                   <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Origem</th>
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {filteredFinishings.map(fin => (
-                  <tr key={fin.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 text-xs">
-                      {fin.name}
-                      {fin.notes && <div className="text-[10px] text-slate-400 font-normal">{fin.notes}</div>}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600 text-[11px]">
-                      {fin.pricingMethod === 'unit'
-                        ? 'Por Unidade'
-                        : fin.pricingMethod === 'area_m2'
-                        ? 'Por m²'
-                        : fin.pricingMethod === 'linear_meter'
-                        ? 'Por Metro Linear'
-                        : fin.pricingMethod === 'mil'
-                        ? 'Por Milheiro'
-                        : 'Valor Fixo'}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono">
-                      <div className="font-bold text-slate-900">
-                        {fin.costPriceCents > 0 ? formatCentsToBRL(fin.costPriceCents) : 'R$ 0,00'}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        {fin.isRequired && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            Obrigatório
+                {filteredFinishings.map(fin => {
+                  const basis = fin.pricingBasis || 'PER_UNIT';
+                  const basisLabel =
+                    basis === 'FIXED'
+                      ? 'Valor fixo por item'
+                      : basis === 'PER_LOT'
+                      ? 'Por lote'
+                      : basis === 'PER_SQUARE_METER'
+                      ? 'Por metro quadrado'
+                      : basis === 'PER_LINEAR_METER'
+                      ? 'Por metro linear'
+                      : 'Por unidade';
+
+                  const priceVal = fin.priceCents !== undefined ? fin.priceCents : (fin.costPriceCents || 0);
+                  const isFree = fin.priceStatus === 'FREE' || (fin.isRequired && priceVal === 0);
+                  const isNotConfigured = fin.priceStatus === 'NOT_CONFIGURED' || (!fin.priceStatus && priceVal === 0 && !fin.isRequired);
+
+                  let priceDisplay = '';
+                  if (isFree) {
+                    priceDisplay = 'Incluso sem custo';
+                  } else if (isNotConfigured) {
+                    priceDisplay = 'Preço não configurado';
+                  } else {
+                    const fmt = formatCentsToBRL(priceVal);
+                    if (basis === 'FIXED') priceDisplay = `${fmt} por item`;
+                    else if (basis === 'PER_LOT') priceDisplay = `${fmt} por lote`;
+                    else if (basis === 'PER_SQUARE_METER') priceDisplay = `${fmt} por m²`;
+                    else if (basis === 'PER_LINEAR_METER') priceDisplay = `${fmt} por metro linear`;
+                    else priceDisplay = `${fmt} por unidade`;
+                  }
+
+                  return (
+                    <tr key={fin.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 text-xs">
+                        {fin.name}
+                        {(fin.description || fin.notes) && (
+                          <div className="text-[10px] text-slate-400 font-normal">{fin.description || fin.notes}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1">
+                          {fin.isRequired ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              Obrigatório
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                              Opcional
+                            </span>
+                          )}
+                          {fin.isDefaultSelected && !fin.isRequired && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                              Padrão
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-600 text-[11px]">
+                        {basisLabel}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono">
+                        {isFree ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {priceDisplay}
                           </span>
-                        )}
-                        {fin.isDefaultSelected && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                            Auto Selecionado
+                        ) : isNotConfigured ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            {priceDisplay}
                           </span>
+                        ) : (
+                          <div className="font-bold text-slate-900 text-xs">
+                            {priceDisplay}
+                          </div>
                         )}
-                        {!fin.isRequired && !fin.isDefaultSelected && (
-                          <span className="text-[10px] text-slate-400">Opcional</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-[11px] text-slate-600">
+                        {fin.compatibleProducts && fin.compatibleProducts.length > 0 ? (
+                          <div className="truncate max-w-[180px]">{fin.compatibleProducts.join(', ')}</div>
+                        ) : (
+                          <span className="text-slate-400">Todos os produtos</span>
                         )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-[11px] text-slate-600">
-                      {fin.compatibleProducts && fin.compatibleProducts.length > 0 ? (
-                        <div className="truncate max-w-[200px]">{fin.compatibleProducts.join(', ')}</div>
-                      ) : (
-                        <span className="text-slate-400">Todos os produtos</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <Badge variant={fin.isActive ? 'success' : 'neutral'} size="sm">
-                        {fin.isActive ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
-                          onClick={() => handleOpenEditFinishing(fin)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={fin.isActive ? 'text-amber-600' : 'text-emerald-600'}
-                          onClick={() => toggleFinishingActive(fin.id)}
-                        >
-                          {fin.isActive ? 'Desativar' : 'Ativar'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-rose-600 hover:bg-rose-50"
-                          icon={<Trash2 className="w-3.5 h-3.5" />}
-                          onClick={() => deleteFinishing(fin.id)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <Badge variant={fin.isActive ? 'success' : 'neutral'} size="sm">
+                          {fin.isActive ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {fin.dataOrigin === 'user' ? 'Usuário' : 'Demonstração'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                            onClick={() => handleOpenEditFinishing(fin)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={fin.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                            onClick={() => toggleFinishingActive(fin.id)}
+                          >
+                            {fin.isActive ? 'Desativar' : 'Ativar'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 hover:bg-rose-50"
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => deleteFinishing(fin.id)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1223,35 +1303,72 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 label="Nome do Acabamento *"
                 value={finishingForm.name}
                 onChange={e => setFinishingForm({ ...finishingForm, name: e.target.value })}
-                placeholder="Ex: Corte Reto, Laminação Fosca..."
+                placeholder="Ex: Corte Reto, Laminação Fosca, Verniz..."
                 required
               />
 
-              <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Descrição Técnica / Instruções (Opcional)"
+                value={finishingForm.description}
+                onChange={e => setFinishingForm({ ...finishingForm, description: e.target.value })}
+                placeholder="Ex: Película protetora fosca BOPP aplicada a quente..."
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Forma de Cobrança
+                    Base de Cobrança *
                   </label>
                   <select
-                    value={finishingForm.pricingMethod}
-                    onChange={e => setFinishingForm({ ...finishingForm, pricingMethod: e.target.value as any })}
+                    value={finishingForm.pricingBasis}
+                    onChange={e => setFinishingForm({ ...finishingForm, pricingBasis: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="unit">Por Unidade</option>
-                    <option value="area_m2">Por Metro Quadrado (m²)</option>
-                    <option value="linear_meter">Por Metro Linear</option>
-                    <option value="mil">Por Milheiro</option>
-                    <option value="fixed">Valor Fixo</option>
+                    <option value="PER_UNIT">Por Unidade (Peça)</option>
+                    <option value="PER_LOT">Por Lote / Tiragem</option>
+                    <option value="PER_SQUARE_METER">Por Metro Quadrado (m²)</option>
+                    <option value="PER_LINEAR_METER">Por Metro Linear</option>
+                    <option value="FIXED">Valor Fixo por Item</option>
                   </select>
                 </div>
 
-                <Input
-                  label="Valor / Custo (R$)"
-                  value={finishingForm.costPriceStr}
-                  onChange={e => setFinishingForm({ ...finishingForm, costPriceStr: e.target.value })}
-                  placeholder="0,00"
-                />
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Definição de Preço *
+                  </label>
+                  <select
+                    value={finishingForm.priceType}
+                    onChange={e => setFinishingForm({ ...finishingForm, priceType: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="charged">Cobrado no Orçamento</option>
+                    <option value="free">Gratuito / Incluso sem Custo</option>
+                    <option value="not_configured">Preço Não Configurado</option>
+                  </select>
+                </div>
               </div>
+
+              {finishingForm.priceType === 'charged' && (
+                <div>
+                  <Input
+                    label="Valor de Venda (R$) *"
+                    value={finishingForm.priceStr}
+                    onChange={e => setFinishingForm({ ...finishingForm, priceStr: e.target.value })}
+                    placeholder="0,00"
+                    helperText={
+                      finishingForm.pricingBasis === 'FIXED'
+                        ? 'Valor cobrado 1x por item no orçamento.'
+                        : finishingForm.pricingBasis === 'PER_LOT'
+                        ? 'Valor cobrado por lote faturado do produto.'
+                        : finishingForm.pricingBasis === 'PER_SQUARE_METER'
+                        ? 'Valor multiplicado pela área total em m².'
+                        : finishingForm.pricingBasis === 'PER_LINEAR_METER'
+                        ? 'Valor multiplicado pelo comprimento total em metros lineares.'
+                        : 'Valor multiplicado pela quantidade de unidades/peças.'
+                    }
+                  />
+                </div>
+              )}
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1259,9 +1376,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     type="checkbox"
                     checked={finishingForm.isRequired}
                     onChange={e => setFinishingForm({ ...finishingForm, isRequired: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 border-slate-300"
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300"
                   />
-                  <span className="font-bold text-slate-800">Acabamento Obrigatório</span>
+                  <span className="font-bold text-slate-800">Acabamento Técnico Obrigatório (Padrão)</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1269,7 +1386,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     type="checkbox"
                     checked={finishingForm.isDefaultSelected}
                     onChange={e => setFinishingForm({ ...finishingForm, isDefaultSelected: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-600 border-slate-300"
+                    className="w-4 h-4 rounded text-teal-600 border-slate-300"
                   />
                   <span className="font-bold text-slate-800">Selecionar Automaticamente ao Adicionar Produto</span>
                 </label>
@@ -1279,7 +1396,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 label="Produtos Compatíveis (Opcional, separados por vírgula)"
                 value={finishingForm.compatibleProductsText}
                 onChange={e => setFinishingForm({ ...finishingForm, compatibleProductsText: e.target.value })}
-                placeholder="Ex: Cartão de Visita, Folder, Banner"
+                placeholder="Ex: Cartão de visita, Folder, Banner em lona"
               />
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">

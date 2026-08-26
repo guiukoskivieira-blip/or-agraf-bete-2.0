@@ -28,7 +28,7 @@
  *   15. Cartaz (un.)
  */
 
-import { Product, CalculationUnit, Material, Finishing, ProductFinishingLink, PricingMode } from '../types/product';
+import { Product, CalculationUnit, Material, Finishing, ProductFinishingLink, PricingMode, FinishingPricingBasis, FinishingPriceStatus } from '../types/product';
 import { calculateItemPricing, inferPricingMode } from './pricing-engine';
 
 /**
@@ -698,44 +698,229 @@ export function getInitialMaterialsTemplate(tenantId: string): Material[] {
 }
 
 /**
- * Retorna os 21 Acabamentos oficiais para um tenant específico
+ * Retorna os 21 Acabamentos oficiais para um tenant específico,
+ * estruturados com base de cobrança explícita e status comercial de preço.
  */
 export function getInitialFinishingsTemplate(tenantId: string): Finishing[] {
   const timestamp = '2026-02-25T00:00:00.000Z';
 
-  const rawFinishings: { name: string; pricingMethod: 'unit' | 'area_m2' | 'fixed' | 'mil' | 'linear_meter' | 'lot'; pricingBasis: 'fixed' | 'unit' | 'lot' | 'area_m2' | 'linear_meter' }[] = [
-    { name: 'Refile', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Corte reto', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Corte especial', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Corte eletrônico', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
-    { name: 'Cantos arredondados', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Dobra', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Vinco', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Furação', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Ilhós', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Bastão e cordão', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Bainha', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Solda de lona', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Laminação fosca', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
-    { name: 'Laminação brilho', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
-    { name: 'Verniz localizado', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Fita dupla face', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Encadernação', pricingMethod: 'unit', pricingBasis: 'unit' },
-    { name: 'Aplicação', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
-    { name: 'Instalação', pricingMethod: 'fixed', pricingBasis: 'fixed' },
-    { name: 'Fundo branco', pricingMethod: 'area_m2', pricingBasis: 'area_m2' },
-    { name: 'Costura', pricingMethod: 'unit', pricingBasis: 'unit' },
+  const rawFinishings: {
+    name: string;
+    description: string;
+    pricingBasis: FinishingPricingBasis;
+    isRequired: boolean;
+    priceStatus: FinishingPriceStatus;
+    priceCents: number;
+    compatibleProducts?: string[];
+  }[] = [
+    {
+      name: 'Refile',
+      description: 'Refile técnico padrão para corte final e esquadro.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: true,
+      priceStatus: 'FREE',
+      priceCents: 0,
+      compatibleProducts: ['Cartão de visita', 'Flyer', 'Folder', 'Bloco de notas', 'Crachá', 'Tag'],
+    },
+    {
+      name: 'Corte reto',
+      description: 'Corte linear reto padrão em placas e substratos rígidos.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: true,
+      priceStatus: 'FREE',
+      priceCents: 0,
+      compatibleProducts: ['Placa em PS', 'Adesivo vinil'],
+    },
+    {
+      name: 'Corte especial',
+      description: 'Corte com faca gráfica ou formato personalizado sob medida.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Adesivo vinil', 'Placa em PS'],
+    },
+    {
+      name: 'Corte eletrônico',
+      description: 'Corte digital em plotter de recorte.',
+      pricingBasis: 'PER_SQUARE_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Adesivo de recorte'],
+    },
+    {
+      name: 'Cantos arredondados',
+      description: 'Arredondamento de cantos (canto moeda).',
+      pricingBasis: 'FIXED',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Cartão de visita', 'Crachá', 'Tag'],
+    },
+    {
+      name: 'Dobra',
+      description: 'Dobra simples ou sanfonada para folhetos.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Flyer', 'Folder'],
+    },
+    {
+      name: 'Vinco',
+      description: 'Vinco mecânico para facilitar dobra sem quebrar a fibra.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Folder', 'Cartaz'],
+    },
+    {
+      name: 'Furação',
+      description: 'Furo central ou padrão para cordão e fixação.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Tag', 'Crachá'],
+    },
+    {
+      name: 'Ilhós',
+      description: 'Ilhós metálico antiferrugem nas pontas ou percurso.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Banner em lona', 'Faixa em lona', 'Lona backlight'],
+    },
+    {
+      name: 'Bastão e cordão',
+      description: 'Bastão de madeira/plástico com ponteiras e cordão para banner.',
+      pricingBasis: 'FIXED',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Banner em lona'],
+    },
+    {
+      name: 'Bainha',
+      description: 'Bainha perimetral com solda térmica para reforço de lona.',
+      pricingBasis: 'PER_LINEAR_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Banner em lona', 'Faixa em lona'],
+    },
+    {
+      name: 'Solda de lona',
+      description: 'Solda térmica eletrônica para emendas em grande formato.',
+      pricingBasis: 'PER_LINEAR_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Banner em lona', 'Lona backlight'],
+    },
+    {
+      name: 'Laminação fosca',
+      description: 'Película protetora fosca BOPP aplicada a quente.',
+      pricingBasis: 'PER_SQUARE_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Cartão de visita', 'Folder', 'Adesivo vinil'],
+    },
+    {
+      name: 'Laminação brilho',
+      description: 'Película protetora brilho BOPP aplicada a quente.',
+      pricingBasis: 'PER_SQUARE_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Cartão de visita', 'Folder', 'Adesivo vinil'],
+    },
+    {
+      name: 'Verniz localizado',
+      description: 'Máscara de verniz UV localizado em áreas selecionadas.',
+      pricingBasis: 'PER_LOT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Cartão de visita'],
+    },
+    {
+      name: 'Fita dupla face',
+      description: 'Aplicação de fita dupla face de alta adesão no verso.',
+      pricingBasis: 'FIXED',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Placa em PS'],
+    },
+    {
+      name: 'Encadernação',
+      description: 'Encadernação espiral ou wire-o com capa cristal/preta.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Bloco de notas'],
+    },
+    {
+      name: 'Aplicação',
+      description: 'Serviço técnico de aplicação e alinhamento de vinil adesivo.',
+      pricingBasis: 'PER_SQUARE_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Adesivo vinil', 'Placa em PS'],
+    },
+    {
+      name: 'Instalação',
+      description: 'Serviço de fixação e instalação da peça no local do cliente.',
+      pricingBasis: 'FIXED',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Placa em PS', 'Banner em lona'],
+    },
+    {
+      name: 'Fundo branco',
+      description: 'Aplicação de camada de tinta branca sob mídias transparentes.',
+      pricingBasis: 'PER_SQUARE_METER',
+      isRequired: false,
+      priceStatus: 'NOT_CONFIGURED',
+      priceCents: 0,
+      compatibleProducts: ['Adesivo vinil'],
+    },
+    {
+      name: 'Costura',
+      description: 'Costura reforçada de borda e passagem de haste para tecido.',
+      pricingBasis: 'PER_UNIT',
+      isRequired: true,
+      priceStatus: 'FREE',
+      priceCents: 0,
+      compatibleProducts: ['Wind banner'],
+    },
   ];
 
   return rawFinishings.map((fin, idx) => ({
     id: `fin_${tenantId}_${idx + 1}`,
     tenantId,
     name: fin.name,
-    pricingMethod: fin.pricingMethod,
+    description: fin.description,
     pricingBasis: fin.pricingBasis,
+    pricingMethod: fin.pricingBasis,
+    priceCents: fin.priceCents,
     costPriceCents: 0,
+    salePriceCents: fin.priceCents,
+    priceStatus: fin.priceStatus,
+    isRequired: fin.isRequired,
+    isDefaultSelected: fin.isRequired,
+    compatibleProducts: fin.compatibleProducts,
     defaultMarkupPercent: 0,
     isActive: true,
+    dataOrigin: 'demo',
     createdAt: timestamp,
     updatedAt: timestamp,
   }));
@@ -763,8 +948,25 @@ export function initializeTenantFinishings(existingFinishings: Finishing[], tena
     return [...existingFinishings, ...templates];
   }
 
-  const existingNames = new Set(tenantExisting.map(f => f.name.toLowerCase()));
-  const newToAdd = templates.filter(tmpl => !existingNames.has(tmpl.name.toLowerCase()));
+  const existingMap = new Map(tenantExisting.map(f => [f.name.toLowerCase(), f]));
 
-  return [...existingFinishings, ...newToAdd];
+  // Migração e preservação idempotente
+  const merged: Finishing[] = templates.map(tmpl => {
+    const existing = existingMap.get(tmpl.name.toLowerCase());
+    if (!existing) return tmpl;
+
+    return {
+      ...tmpl,
+      ...existing,
+      pricingBasis: existing.pricingBasis || tmpl.pricingBasis,
+      priceStatus: existing.priceStatus || (existing.costPriceCents && existing.costPriceCents > 0 ? 'CONFIGURED' : tmpl.priceStatus),
+      priceCents: existing.priceCents !== undefined ? existing.priceCents : (existing.costPriceCents || tmpl.priceCents),
+    };
+  });
+
+  // Mantém também acabamentos customizados criados pelo usuário
+  const templateNames = new Set(templates.map(t => t.name.toLowerCase()));
+  const customUserFinishings = tenantExisting.filter(f => !templateNames.has(f.name.toLowerCase()));
+
+  return [...merged, ...customUserFinishings];
 }

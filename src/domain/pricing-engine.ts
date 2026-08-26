@@ -18,9 +18,19 @@
  * - Arredondamento seguro com Math.round() apenas nos limites do cálculo.
  */
 
-import { PricingMode, FinishingPricingBasis } from '../types/product';
+import { PricingMode, FinishingPricingBasis, FinishingPriceStatus } from '../types/product';
 import { QuoteItemFinishing } from '../types/quote';
 import { formatCentsToBRL } from './money';
+
+export function normalizeFinishingPricingBasis(raw: unknown): FinishingPricingBasis {
+  if (!raw) return 'PER_UNIT';
+  const str = String(raw).toUpperCase().replace(/-/g, '_');
+  if (str === 'FIXED') return 'FIXED';
+  if (str === 'PER_LOT' || str === 'LOT' || str === 'MIL') return 'PER_LOT';
+  if (str === 'PER_SQUARE_METER' || str === 'AREA_M2' || str === 'M2' || str === 'SQUARE_METER') return 'PER_SQUARE_METER';
+  if (str === 'PER_LINEAR_METER' || str === 'LINEAR_METER' || str === 'M_LINEAR') return 'PER_LINEAR_METER';
+  return 'PER_UNIT';
+}
 
 export interface ItemPricingInput {
   pricingMode: PricingMode;
@@ -36,6 +46,7 @@ export interface ItemPricingInput {
     name: string;
     pricingBasis?: FinishingPricingBasis | string;
     unitPriceCents: number;
+    priceStatus?: FinishingPriceStatus;
     isRequired?: boolean;
     isOptional?: boolean;
     notes?: string;
@@ -202,53 +213,60 @@ export function calculateItemPricing(input: ItemPricingInput): ItemPricingResult
   let finishingsTotalCents = 0;
 
   for (const fin of finishings) {
+    const rawBasis = normalizeFinishingPricingBasis(fin.pricingBasis);
     const finUnitPrice = Math.max(0, Math.round(Number(fin.unitPriceCents) || 0));
-    let basis: FinishingPricingBasis = 'unit';
-
-    // Inferência ou leitura da base de cobrança do acabamento
-    if (fin.pricingBasis === 'fixed') {
-      basis = 'fixed';
-    } else if (fin.pricingBasis === 'lot' || (pricingMode === 'LOT' && (fin.pricingBasis === 'mil' || fin.pricingBasis === 'unit'))) {
-      basis = 'lot';
-    } else if (fin.pricingBasis === 'area_m2' || fin.pricingBasis === 'm2') {
-      basis = 'area_m2';
-    } else if (fin.pricingBasis === 'linear_meter') {
-      basis = 'linear_meter';
-    } else {
-      // Fallback conforme a modalidade do produto pai
-      if (pricingMode === 'SQUARE_METER' && fin.pricingBasis === 'area_m2') {
-        basis = 'area_m2';
-      } else if (pricingMode === 'LINEAR_METER' && fin.pricingBasis === 'linear_meter') {
-        basis = 'linear_meter';
-      } else if (pricingMode === 'LOT') {
-        basis = 'lot';
+    
+    // Status do preço
+    let status: FinishingPriceStatus = (fin as any).priceStatus;
+    if (!status) {
+      if (fin.isRequired && finUnitPrice === 0) {
+        status = 'FREE';
+      } else if (finUnitPrice > 0) {
+        status = 'CONFIGURED';
       } else {
-        basis = 'unit';
+        status = 'NOT_CONFIGURED';
       }
     }
 
     let finTotalCents = 0;
     let finUnits = 1;
+    let memory = '';
 
-    if (basis === 'fixed') {
+    if (status === 'FREE') {
+      finTotalCents = 0;
       finUnits = 1;
-      finTotalCents = finUnitPrice;
-    } else if (basis === 'lot') {
-      const billedLots = pricingMode === 'LOT' ? Math.max(1, Math.ceil(safeQuantity / (lotSize || 1000))) : 1;
-      finUnits = billedLots;
-      finTotalCents = billedLots * finUnitPrice;
-    } else if (basis === 'area_m2') {
-      const area = areaM2 || (safeQuantity * 1);
-      finUnits = area;
-      finTotalCents = Math.round(area * finUnitPrice);
-    } else if (basis === 'linear_meter') {
-      const length = linearMeters || (safeQuantity * 1);
-      finUnits = length;
-      finTotalCents = Math.round(length * finUnitPrice);
+      memory = 'Incluso sem custo';
+    } else if (status === 'NOT_CONFIGURED' || finUnitPrice === 0) {
+      finTotalCents = 0;
+      finUnits = 0;
+      memory = 'Preço não configurado';
     } else {
-      // unit
-      finUnits = safeQuantity;
-      finTotalCents = safeQuantity * finUnitPrice;
+      // CONFIGURED
+      if (rawBasis === 'FIXED') {
+        finUnits = 1;
+        finTotalCents = finUnitPrice;
+        memory = `1 item × ${formatCentsToBRL(finUnitPrice)} = ${formatCentsToBRL(finTotalCents)}`;
+      } else if (rawBasis === 'PER_LOT') {
+        const billedLots = pricingMode === 'LOT' ? Math.max(1, Math.ceil(safeQuantity / (lotSize || 1000))) : Math.max(1, Math.ceil(safeQuantity / 1000));
+        finUnits = billedLots;
+        finTotalCents = billedLots * finUnitPrice;
+        memory = `${billedLots} ${billedLots === 1 ? 'lote' : 'lotes'} × ${formatCentsToBRL(finUnitPrice)} = ${formatCentsToBRL(finTotalCents)}`;
+      } else if (rawBasis === 'PER_SQUARE_METER') {
+        const area = areaM2 || (safeQuantity * 1);
+        finUnits = area;
+        finTotalCents = Math.round(area * finUnitPrice);
+        memory = `${area.toFixed(2).replace('.', ',')} m² × ${formatCentsToBRL(finUnitPrice)}/m² = ${formatCentsToBRL(finTotalCents)}`;
+      } else if (rawBasis === 'PER_LINEAR_METER') {
+        const length = linearMeters || (safeQuantity * 1);
+        finUnits = length;
+        finTotalCents = Math.round(length * finUnitPrice);
+        memory = `${length.toFixed(2).replace('.', ',')} m × ${formatCentsToBRL(finUnitPrice)}/m = ${formatCentsToBRL(finTotalCents)}`;
+      } else {
+        // PER_UNIT
+        finUnits = safeQuantity;
+        finTotalCents = safeQuantity * finUnitPrice;
+        memory = `${safeQuantity} un. × ${formatCentsToBRL(finUnitPrice)} = ${formatCentsToBRL(finTotalCents)}`;
+      }
     }
 
     finishingsTotalCents += finTotalCents;
@@ -256,10 +274,13 @@ export function calculateItemPricing(input: ItemPricingInput): ItemPricingResult
     calculatedFinishings.push({
       finishingId: fin.finishingId,
       name: fin.name,
-      pricingBasis: basis,
+      pricingBasis: rawBasis,
       calculatedUnits: finUnits,
+      billedQuantity: finUnits,
       unitPriceCents: finUnitPrice,
       totalPriceCents: finTotalCents,
+      priceStatus: status,
+      calculationMemory: memory,
       isRequired: fin.isRequired,
       isOptional: fin.isOptional,
       notes: fin.notes,

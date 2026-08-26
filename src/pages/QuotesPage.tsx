@@ -129,7 +129,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Orçamentos</h1>
           <p className="text-sm text-slate-500">
-            Elabore propostas, defina descontos comerciais, baixe o PDF e envie pelo WhatsApp da gráfica.
+            Elabore propostas, aplique descontos comerciais, baixe o PDF e acompanhe as aprovações.
           </p>
         </div>
 

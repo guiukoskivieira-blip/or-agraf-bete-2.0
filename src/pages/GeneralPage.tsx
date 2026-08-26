@@ -250,7 +250,7 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
               </div>
 
               <p className="text-slate-600 leading-relaxed">
-                Aprovar este orçamento? Após a aprovação, os dados ficarão disponíveis para envio ao ArteFlow.
+                Aprovar este orçamento? Após a aprovação, o orçamento será registrado como aprovado comercialmente no OrçaGraf.
               </p>
             </div>
 

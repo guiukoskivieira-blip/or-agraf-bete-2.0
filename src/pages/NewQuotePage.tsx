@@ -53,6 +53,7 @@ import {
   PricingMode,
   PRICING_MODES,
   FinishingPricingBasis,
+  FinishingPriceStatus,
 } from '../types/product';
 import { User, hasUserPermission } from '../types/tenant';
 import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
@@ -67,11 +68,15 @@ interface NewQuotePageProps {
 export interface FormQuoteItemFinishing {
   finishingId: string;
   name: string;
-  pricingBasis?: FinishingPricingBasis;
+  description?: string;
+  pricingBasis: FinishingPricingBasis;
   unitPriceCents: number;
   totalPriceCents: number;
+  priceStatus: FinishingPriceStatus;
+  calculationMemory?: string;
   isRequired: boolean;
   isOptional: boolean;
+  isAdditional?: boolean;
   selected: boolean;
   quantity?: number;
   notes?: string;
@@ -313,26 +318,35 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
         .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
         .forEach(lf => {
           const matchedCatalog = catalogFinishings.find(
-            cf => cf.name.toLowerCase() === lf.finishingName.toLowerCase()
+            cf => cf.name.toLowerCase() === lf.finishingName.toLowerCase() || cf.id === lf.finishingId
           );
 
-          const unitPrice = matchedCatalog?.costPriceCents || 0;
-          const isReq = Boolean(lf.isRequired);
-          const isDefSel = Boolean(lf.isDefaultSelected);
-          const isSelected = isReq || isDefSel;
+          const basis: FinishingPricingBasis =
+            matchedCatalog?.pricingBasis || (matchedCatalog?.pricingMethod as any) || 'PER_UNIT';
+          const isReq = Boolean(lf.isRequired || matchedCatalog?.isRequired);
+          const priceCents = matchedCatalog?.priceCents !== undefined ? matchedCatalog.priceCents : (matchedCatalog?.costPriceCents || 0);
+
+          let priceStatus: FinishingPriceStatus =
+            matchedCatalog?.priceStatus || (priceCents > 0 ? 'CONFIGURED' : isReq ? 'FREE' : 'NOT_CONFIGURED');
+
+          const isConfiguredOrFree = priceStatus === 'FREE' || (priceStatus === 'CONFIGURED' && priceCents > 0);
+          const isSelected = isReq ? true : (Boolean(lf.isDefaultSelected || matchedCatalog?.isDefaultSelected) && isConfiguredOrFree);
 
           list.push({
-            finishingId: lf.finishingId || `fin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            finishingId: matchedCatalog?.id || lf.finishingId || `fin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
             name: lf.finishingName,
-            pricingBasis: matchedCatalog?.pricingBasis || (matchedCatalog?.pricingMethod as any) || 'unit',
-            unitPriceCents: unitPrice,
+            description: matchedCatalog?.description,
+            pricingBasis: basis,
+            unitPriceCents: priceCents,
             totalPriceCents: 0,
+            priceStatus,
             isRequired: isReq,
             isOptional: !isReq,
+            isAdditional: false,
             selected: isSelected,
             quantity: currentQty,
             notes: '',
-            hasPriceConfigured: unitPrice > 0,
+            hasPriceConfigured: isConfiguredOrFree,
           });
         });
     }
@@ -348,6 +362,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
         name: f.name,
         pricingBasis: f.pricingBasis,
         unitPriceCents: f.unitPriceCents,
+        priceStatus: f.priceStatus,
         isRequired: f.isRequired,
         isOptional: f.isOptional,
       }));
@@ -365,7 +380,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
     const updatedFinishings = (item.finishings || []).map(f => {
       if (!f.selected) {
-        return { ...f, totalPriceCents: 0 };
+        return { ...f, totalPriceCents: 0, calculationMemory: undefined };
       }
       const calcFin = pricingRes.calculatedFinishings.find(
         cf => cf.finishingId === f.finishingId || cf.name.toLowerCase() === f.name.toLowerCase()
@@ -373,6 +388,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       return {
         ...f,
         totalPriceCents: calcFin ? calcFin.totalPriceCents : 0,
+        calculationMemory: calcFin?.calculationMemory,
       };
     });
 
@@ -517,11 +533,21 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
             if (fin.isRequired) {
               showNotice(
                 'Acabamento Obrigatório',
-                `O acabamento "${fin.name}" é requisito técnico de produção deste item e não pode ser removido.`,
+                `O acabamento "${fin.name}" é requisito técnico de produção deste item e já está incluso sem custo adicional.`,
+                'info'
+              );
+              return fin;
+            }
+
+            if (!fin.selected && (fin.priceStatus === 'NOT_CONFIGURED' || (!fin.priceStatus && fin.unitPriceCents === 0))) {
+              showNotice(
+                'Preço Não Configurado',
+                `O acabamento "${fin.name}" não possui preço de venda configurado no catálogo. Configure o valor no Catálogo de Acabamentos para cobrá-lo na proposta.`,
                 'warning'
               );
               return fin;
             }
+
             return { ...fin, selected: !fin.selected };
           }
           return fin;
@@ -543,17 +569,35 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           return it;
         }
 
+        const basis: FinishingPricingBasis = finishing.pricingBasis || (finishing.pricingMethod as any) || 'PER_UNIT';
+        const priceCents = finishing.priceCents !== undefined ? finishing.priceCents : (finishing.costPriceCents || 0);
+        const priceStatus: FinishingPriceStatus = finishing.priceStatus || (priceCents > 0 ? 'CONFIGURED' : finishing.isRequired ? 'FREE' : 'NOT_CONFIGURED');
+
+        const isConfiguredOrFree = priceStatus === 'FREE' || (priceStatus === 'CONFIGURED' && priceCents > 0);
+
+        if (!isConfiguredOrFree) {
+          showNotice(
+            'Preço Não Configurado',
+            `O acabamento "${finishing.name}" está sem preço configurado no catálogo. Configure o valor no Catálogo antes de adicioná-lo à proposta comercial.`,
+            'warning'
+          );
+          return it;
+        }
+
         const newFin: FormQuoteItemFinishing = {
           finishingId: finishing.id,
           name: finishing.name,
-          pricingBasis: finishing.pricingBasis || (finishing.pricingMethod as any) || 'unit',
-          unitPriceCents: finishing.costPriceCents || 0,
+          description: finishing.description,
+          pricingBasis: basis,
+          unitPriceCents: priceCents,
           totalPriceCents: 0,
+          priceStatus,
           isRequired: false,
           isOptional: true,
+          isAdditional: true,
           selected: true,
           quantity: it.quantity,
-          hasPriceConfigured: (finishing.costPriceCents || 0) > 0,
+          hasPriceConfigured: true,
         };
 
         return recalculateFormQuoteItem({ ...it, finishings: [...it.finishings, newFin] });
@@ -821,7 +865,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       return;
     }
 
-    // Validações estritas por modalidade de precificação
+    // Validações estritas por modalidade de precificação e acabamentos
     for (const it of items) {
       if (!it.productName.trim()) {
         showNotice('Item Incompleto', 'Preencha a descrição de todos os itens.', 'warning');
@@ -848,6 +892,17 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           return;
         }
       }
+
+      // Bloqueio de acabamento selecionado sem preço configurado
+      const unconfiguredSelectedFin = it.finishings.find(f => f.selected && f.priceStatus === 'NOT_CONFIGURED');
+      if (unconfiguredSelectedFin) {
+        showNotice(
+          'Acabamento Sem Preço',
+          `O acabamento "${unconfiguredSelectedFin.name}" no item "${it.productName}" está com preço não configurado. Desmarque-o ou configure seu valor no catálogo antes de salvar.`,
+          'warning'
+        );
+        return;
+      }
     }
 
     // Converte os itens e acabamentos selecionados de cada item preservando o snapshot
@@ -860,6 +915,8 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           pricingBasis: f.pricingBasis,
           unitPriceCents: f.unitPriceCents || 0,
           totalPriceCents: f.totalPriceCents || 0,
+          priceStatus: f.priceStatus,
+          calculationMemory: f.calculationMemory,
           isRequired: f.isRequired,
           isOptional: f.isOptional,
           quantity: it.quantity,
@@ -1356,8 +1413,8 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                   </div>
                 )}
 
-                {/* Linha 3: Acabamentos do Item (Estilo Sem Vermelho: Azul para Obrigatório, Turquesa para Selecionado, Cinza Claro para Opcional) */}
-                <div className="pt-2 border-t border-slate-200/50 space-y-2">
+                {/* Linha 3: Acabamentos do Item (Obrigatórios, Opcionais e Memória de Cálculo) */}
+                <div className="pt-2 border-t border-slate-200/50 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                       <Scissors className="w-3.5 h-3.5 text-blue-600" />
@@ -1377,7 +1434,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                           }}
                         >
                           <option value="" disabled>
-                            + Adicionar outro acabamento...
+                            + Adicionar acabamento adicional...
                           </option>
                           {catalogFinishings
                             .filter(
@@ -1389,7 +1446,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                             )
                             .map(cf => (
                               <option key={cf.id} value={cf.id}>
-                                {cf.name}
+                                {cf.name} {cf.priceStatus === 'FREE' ? '(Incluso)' : cf.priceStatus === 'NOT_CONFIGURED' ? '(Sem preço)' : `(${formatCentsToBRL(cf.priceCents || cf.costPriceCents || 0)})`}
                               </option>
                             ))}
                         </select>
@@ -1402,50 +1459,130 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       Nenhum acabamento vinculado ou selecionado para este produto.
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 flex-wrap pt-1">
-                      {item.finishings.map(fin => {
-                        return (
-                          <div
-                            key={fin.name}
-                            onClick={() => handleToggleFinishing(item.id, fin.name)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer select-none ${
-                              fin.isRequired
-                                ? 'bg-blue-50/90 text-blue-800 border-blue-200 cursor-default'
-                                : fin.selected
-                                ? 'bg-teal-50 text-teal-800 border-teal-300 shadow-2xs'
-                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
-                            }`}
-                          >
-                            {fin.isRequired ? (
-                              <Lock className="w-3 h-3 text-blue-600" />
-                            ) : (
-                              <input
-                                type="checkbox"
-                                checked={fin.selected}
-                                onChange={() => {}}
-                                className="rounded text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 pointer-events-none"
-                              />
-                            )}
-
-                            <span>{fin.name}</span>
-
-                            {fin.isRequired && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold uppercase border border-blue-200/60">
-                                Obrigatório
-                              </span>
-                            )}
-
-                            {fin.selected && !fin.hasPriceConfigured && (
-                              <span
-                                className="text-[9px] text-slate-500 bg-slate-100 px-1 py-0.2 rounded font-medium"
-                                title="Acabamento sem custo adicional configurado"
-                              >
-                                R$ 0,00
-                              </span>
-                            )}
+                    <div className="space-y-2">
+                      {/* Acabamentos Obrigatórios */}
+                      {item.finishings.filter(f => f.isRequired).length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Acabamentos Obrigatórios do Produto
+                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.finishings
+                              .filter(f => f.isRequired)
+                              .map(fin => (
+                                <div
+                                  key={fin.name}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50/90 text-blue-800 border border-blue-200 select-none"
+                                >
+                                  <Lock className="w-3 h-3 text-blue-600" />
+                                  <span>{fin.name}</span>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold uppercase border border-blue-200/60">
+                                    Obrigatório • Incluso sem custo
+                                  </span>
+                                </div>
+                              ))}
                           </div>
-                        );
-                      })}
+                        </div>
+                      )}
+
+                      {/* Acabamentos Opcionais / Adicionais */}
+                      {item.finishings.filter(f => !f.isRequired).length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Acabamentos Opcionais & Adicionais
+                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.finishings
+                              .filter(f => !f.isRequired)
+                              .map(fin => {
+                                const isNotConfigured =
+                                  fin.priceStatus === 'NOT_CONFIGURED' ||
+                                  (!fin.priceStatus && fin.unitPriceCents === 0);
+
+                                const basis = fin.pricingBasis || 'PER_UNIT';
+                                const basisTag =
+                                  basis === 'FIXED'
+                                    ? 'fixo'
+                                    : basis === 'PER_LOT'
+                                    ? 'lote'
+                                    : basis === 'PER_SQUARE_METER'
+                                    ? 'm²'
+                                    : basis === 'PER_LINEAR_METER'
+                                    ? 'm'
+                                    : 'un.';
+
+                                if (isNotConfigured) {
+                                  return (
+                                    <div
+                                      key={fin.name}
+                                      onClick={() => handleToggleFinishing(item.id, fin.name)}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-50/70 text-amber-900 border border-amber-200/80 cursor-not-allowed opacity-80 select-none"
+                                      title="Acabamento sem preço configurado no catálogo. Não pode ser adicionado como R$ 0,00."
+                                    >
+                                      <span className="w-3.5 h-3.5 rounded border border-amber-300 bg-amber-100/50 flex items-center justify-center text-[10px] font-bold text-amber-700">
+                                        !
+                                      </span>
+                                      <span>{fin.name}</span>
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold border border-amber-200">
+                                        Preço não configurado
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={fin.name}
+                                    onClick={() => handleToggleFinishing(item.id, fin.name)}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer select-none ${
+                                      fin.selected
+                                        ? 'bg-teal-50 text-teal-800 border-teal-300 shadow-2xs'
+                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={fin.selected}
+                                      onChange={() => {}}
+                                      className="rounded text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 pointer-events-none"
+                                    />
+                                    <span>{fin.name}</span>
+                                    {fin.priceStatus === 'FREE' ? (
+                                      <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded font-medium">
+                                        Incluso
+                                      </span>
+                                    ) : (
+                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-medium ${fin.selected ? 'bg-teal-100/80 text-teal-900' : 'bg-slate-100 text-slate-600'}`}>
+                                        {fin.selected
+                                          ? `+ ${formatCentsToBRL(fin.totalPriceCents)}`
+                                          : `+ ${formatCentsToBRL(fin.unitPriceCents)}/${basisTag}`}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Memória de Cálculo dos Acabamentos Selecionados */}
+                      {item.finishings.some(f => f.selected && f.totalPriceCents > 0) && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                          <div className="font-bold text-[11px] uppercase tracking-wider text-slate-600">
+                            Memória de Cálculo dos Acabamentos Cobrados
+                          </div>
+                          <div className="space-y-0.5">
+                            {item.finishings
+                              .filter(f => f.selected && f.totalPriceCents > 0)
+                              .map(f => (
+                                <div key={f.name} className="flex justify-between items-center text-slate-700 font-mono text-[11px]">
+                                  <span>{f.name}: {f.calculationMemory}</span>
+                                  <span className="font-bold text-slate-900">{formatCentsToBRL(f.totalPriceCents)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

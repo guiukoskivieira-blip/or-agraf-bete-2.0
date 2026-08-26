@@ -269,37 +269,58 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
                     </div>
                   </div>
 
-                  {/* Acabamentos Vinculados */}
+                  {/* Acabamentos Vinculados e Adicionais */}
                   {item.finishings && item.finishings.length > 0 && (
-                    <div className="p-3 rounded-lg bg-white border border-slate-200/90 text-xs space-y-1.5">
+                    <div className="p-3 rounded-lg bg-white border border-slate-200/90 text-xs space-y-2">
                       <div className="flex items-center gap-1.5 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
                         <Scissors className="w-3 h-3 text-blue-600" />
-                        <span>Acabamentos Inclusos</span>
+                        <span>Acabamentos Técnicos do Item</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {item.finishings.map((fin, fIdx) => (
-                          <span
-                            key={fin.finishingId || fIdx}
-                            className={`px-2 py-0.5 rounded-full font-medium text-[11px] border flex items-center gap-1 ${
-                              fin.isRequired
-                                ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                : 'bg-teal-50 text-teal-800 border-teal-200'
-                            }`}
-                          >
-                            <span>{fin.name}</span>
-                            {fin.isRequired && (
-                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 font-bold uppercase">
-                                Obrigatório
-                              </span>
-                            )}
-                            {fin.totalPriceCents > 0 && (
-                              <span className="font-mono text-slate-500 font-bold">
-                                (+{formatCentsToBRL(fin.totalPriceCents)})
-                              </span>
-                            )}
-                          </span>
-                        ))}
+                        {item.finishings.map((fin, fIdx) => {
+                          const isFree = fin.priceStatus === 'FREE' || (!fin.totalPriceCents && fin.isRequired);
+                          return (
+                            <span
+                              key={fin.finishingId || fIdx}
+                              className={`px-2.5 py-1 rounded-xl font-medium text-[11px] border flex items-center gap-1.5 ${
+                                fin.isRequired
+                                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                  : isFree
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-teal-50 text-teal-800 border-teal-200'
+                              }`}
+                            >
+                              <span>{fin.name}</span>
+                              {fin.isRequired ? (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 font-bold uppercase">
+                                  Incluso
+                                </span>
+                              ) : isFree ? (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">
+                                  Incluso
+                                </span>
+                              ) : (
+                                <span className="font-mono text-teal-900 font-bold">
+                                  (+{formatCentsToBRL(fin.totalPriceCents)})
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
                       </div>
+
+                      {item.finishings.some(f => f.calculationMemory && f.totalPriceCents > 0) && (
+                        <div className="pt-1.5 border-t border-slate-100 space-y-0.5">
+                          {item.finishings
+                            .filter(f => f.calculationMemory && f.totalPriceCents > 0)
+                            .map((f, fIdx) => (
+                              <div key={f.finishingId || fIdx} className="text-[10px] text-slate-500 font-mono flex justify-between">
+                                <span>• {f.name}: {f.calculationMemory}</span>
+                                <span className="font-bold text-slate-700">{formatCentsToBRL(f.totalPriceCents)}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -496,7 +517,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
               </div>
 
               <p className="text-slate-600 leading-relaxed">
-                Aprovar este orçamento? Após a aprovação, os dados ficarão disponíveis para envio ao ArteFlow.
+                Aprovar este orçamento? Após a aprovação, o orçamento será registrado como aprovado comercialmente no OrçaGraf.
               </p>
             </div>
 
