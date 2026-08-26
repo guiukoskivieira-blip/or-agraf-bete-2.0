@@ -336,5 +336,61 @@ export function runFinishingsCompatibilityTests(): TestResult[] {
     '27. Todos os 21 acabamentos possuem compatibilidade estruturada por IDs'
   );
 
+  // 28. [Hotfix P1.1] Refile não aparece no Banner em lona
+  assert(
+    !isFinishingCompatibleWithProduct(refileFin, bannerId, tenantAlpha),
+    '28. [Hotfix P1.1] Refile não é compatível com Banner em lona'
+  );
+
+  // 29. [Hotfix P1.1] Solda de lona no Banner em lona é opcional e não obrigatória
+  const soldaFin = finishingsAlpha.find(f => f.name.toLowerCase() === 'solda de lona')!;
+  assert(
+    isFinishingCompatibleWithProduct(soldaFin, bannerId, tenantAlpha) && soldaFin.isRequired === false,
+    '29. [Hotfix P1.1] Solda de lona é acabamento opcional e não obrigatório no Banner em lona'
+  );
+
+  // 30. [Hotfix P1.1] Refile não aparece no Wind banner
+  assert(
+    !isFinishingCompatibleWithProduct(refileFin, windBannerId, tenantAlpha),
+    '30. [Hotfix P1.1] Refile não é compatível com Wind banner'
+  );
+
+  // 31. [Hotfix P1.1] Costura aparece obrigatoriamente no Wind banner
+  assert(
+    isFinishingCompatibleWithProduct(costuraFin, windBannerId, tenantAlpha) && costuraFin.isRequired === true,
+    '31. [Hotfix P1.1] Costura é compatível e obrigatória no Wind banner'
+  );
+
+  // 32. [Hotfix P1.1] Cartão de visita mantém apenas Refile como obrigatório e opcionais compatíveis
+  const cartaoCompatibles = finishingsAlpha.filter(f => isFinishingCompatibleWithProduct(f, cartaoId, tenantAlpha));
+  const cartaoRequired = cartaoCompatibles.filter(f => f.isRequired);
+  assert(
+    cartaoRequired.length === 1 && cartaoRequired[0].name.toLowerCase() === 'refile',
+    '32. [Hotfix P1.1] Cartão de visita possui exclusivamente Refile como obrigatório'
+  );
+
+  // 33. [Hotfix P1.1] Faixa em lona possui exatamente Ilhós, Bainha e Solda de lona
+  const faixaAll = finishingsAlpha.filter(f => isFinishingCompatibleWithProduct(f, faixaId, tenantAlpha));
+  const faixaNames = new Set(faixaAll.map(f => f.name.toLowerCase()));
+  assert(
+    faixaAll.length === 3 && faixaNames.has('ilhós') && faixaNames.has('bainha') && faixaNames.has('solda de lona'),
+    '33. [Hotfix P1.1] Faixa em lona possui exatamente Ilhós, Bainha e Solda de lona'
+  );
+
+  // 34. [Hotfix P1.1] Listas legadas do produto não conseguem forçar acabamento incompatível
+  const fakeLegacyProduct: Product = {
+    ...productsAlpha[0],
+    id: `prod_${tenantAlpha}_banner_lona`,
+    linkedFinishings: [
+      { finishingName: 'Refile', isRequired: true, isDefaultSelected: true, displayOrder: 1, isActive: true },
+      { finishingName: 'Costura', isRequired: true, isDefaultSelected: true, displayOrder: 2, isActive: true },
+    ],
+  };
+  const resolvedFinishings = finishingsAlpha.filter(cf => isFinishingCompatibleWithProduct(cf, fakeLegacyProduct.id, tenantAlpha));
+  assert(
+    !resolvedFinishings.some(f => f.name === 'Refile') && !resolvedFinishings.some(f => f.name === 'Costura'),
+    '34. [Hotfix P1.1] O motor canônico ignora tentativas de injeção de acabamentos incompatíveis via listas legadas'
+  );
+
   return results;
 }

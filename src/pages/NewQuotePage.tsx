@@ -310,55 +310,41 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
     });
   }, [activeProducts, catalogSearch, catalogCategoryFilter]);
 
-  // Converte vínculos de acabamentos do produto em acabamentos do formulário
+  // Converte acabamentos canônicos compatíveis do catálogo em acabamentos do formulário
   const buildFinishingsForProduct = (product: Product, currentQty: number): FormQuoteItemFinishing[] => {
-    const list: FormQuoteItemFinishing[] = [];
+    // Consulta exclusivamente o catálogo canônico de acabamentos do tenant
+    const compatibleCatalogFinishings = catalogFinishings.filter(cf =>
+      cf.isActive !== false && isFinishingCompatibleWithProduct(cf, product.id, tenantId)
+    );
 
-    if (product.linkedFinishings && product.linkedFinishings.length > 0) {
-      product.linkedFinishings
-        .filter(lf => lf.isActive !== false)
-        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-        .forEach(lf => {
-          const matchedCatalog = catalogFinishings.find(
-            cf => cf.name.toLowerCase() === lf.finishingName.toLowerCase() || cf.id === lf.finishingId
-          );
+    return compatibleCatalogFinishings.map(cf => {
+      const basis: FinishingPricingBasis = cf.pricingBasis || (cf.pricingMethod as any) || 'PER_UNIT';
+      const isReq = Boolean(cf.isRequired);
+      const priceCents = cf.priceCents !== undefined ? cf.priceCents : (cf.costPriceCents || 0);
 
-          // Verifica compatibilidade canônica por ID com o produto
-          if (matchedCatalog && !isFinishingCompatibleWithProduct(matchedCatalog, product.id, tenantId) && !lf.isRequired) {
-            return;
-          }
+      let priceStatus: FinishingPriceStatus =
+        cf.priceStatus || (priceCents > 0 ? 'CONFIGURED' : isReq ? 'FREE' : 'NOT_CONFIGURED');
 
-          const basis: FinishingPricingBasis =
-            matchedCatalog?.pricingBasis || (matchedCatalog?.pricingMethod as any) || 'PER_UNIT';
-          const isReq = Boolean(lf.isRequired || matchedCatalog?.isRequired);
-          const priceCents = matchedCatalog?.priceCents !== undefined ? matchedCatalog.priceCents : (matchedCatalog?.costPriceCents || 0);
+      const isConfiguredOrFree = priceStatus === 'FREE' || (priceStatus === 'CONFIGURED' && priceCents > 0);
+      const isSelected = isReq ? true : (Boolean(cf.isDefaultSelected) && isConfiguredOrFree);
 
-          let priceStatus: FinishingPriceStatus =
-            matchedCatalog?.priceStatus || (priceCents > 0 ? 'CONFIGURED' : isReq ? 'FREE' : 'NOT_CONFIGURED');
-
-          const isConfiguredOrFree = priceStatus === 'FREE' || (priceStatus === 'CONFIGURED' && priceCents > 0);
-          const isSelected = isReq ? true : (Boolean(lf.isDefaultSelected || matchedCatalog?.isDefaultSelected) && isConfiguredOrFree);
-
-          list.push({
-            finishingId: matchedCatalog?.id || lf.finishingId || `fin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            name: lf.finishingName,
-            description: matchedCatalog?.description,
-            pricingBasis: basis,
-            unitPriceCents: priceCents,
-            totalPriceCents: 0,
-            priceStatus,
-            isRequired: isReq,
-            isOptional: !isReq,
-            isAdditional: false,
-            selected: isSelected,
-            quantity: currentQty,
-            notes: '',
-            hasPriceConfigured: isConfiguredOrFree,
-          });
-        });
-    }
-
-    return list;
+      return {
+        finishingId: cf.id,
+        name: cf.name,
+        description: cf.description,
+        pricingBasis: basis,
+        unitPriceCents: priceCents,
+        totalPriceCents: 0,
+        priceStatus,
+        isRequired: isReq,
+        isOptional: !isReq,
+        isAdditional: false,
+        selected: isSelected,
+        quantity: currentQty,
+        notes: '',
+        hasPriceConfigured: isConfiguredOrFree,
+      };
+    });
   };
 
   const recalculateFormQuoteItem = (item: FormQuoteItem): FormQuoteItem => {
