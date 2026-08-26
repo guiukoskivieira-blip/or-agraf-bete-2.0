@@ -81,9 +81,16 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
     >
       <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
         <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-slate-800">
-            <UserIcon className="w-4 h-4 text-blue-600" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">Identificação do Usuário</h2>
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
+            <div className="flex items-center gap-2">
+              <UserIcon className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-bold uppercase tracking-wider">Identificação do Usuário</h2>
+            </div>
+            {currentUser.dataOrigin === 'demo' && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Usuário demonstrativo
+              </span>
+            )}
           </div>
 
           {/* Foto de Perfil */}

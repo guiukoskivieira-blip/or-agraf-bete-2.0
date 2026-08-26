@@ -6,6 +6,12 @@
   --foreground: #0F172A;
 }
 
+*,
+*::before,
+*::after {
+  color-scheme: light !important;
+}
+
 html {
   color-scheme: light !important;
   background-color: #F8FAFC !important;
@@ -22,16 +28,39 @@ body {
   min-height: 100vh;
 }
 
-/* Force light color scheme and background on all interactive inputs, dialogs and root */
+/* Force light background and foreground on root */
 #root {
   background-color: #F8FAFC !important;
   color: #0F172A !important;
+  min-height: 100vh;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root, html, body, #root {
-    color-scheme: light !important;
-    background-color: #F8FAFC !important;
-    color: #0F172A !important;
-  }
+/* Forçar tema claro determinístico em todos os inputs nativos, selects, options, botões e modais */
+input,
+select,
+textarea,
+button,
+option,
+optgroup,
+dialog {
+  color-scheme: light !important;
+}
+
+/* Scrollbar estilizada em modo claro para todos os navegadores */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }

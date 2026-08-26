@@ -177,6 +177,16 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
       description="Gerencie os colaboradores da gráfica, perfis de acesso e a matriz de permissões de cada módulo."
     >
       <div className="space-y-6">
+        {/* Banner Informativo sobre Usuários Demonstrativos */}
+        <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200/80 text-xs text-amber-900 flex items-center justify-between gap-3">
+          <p>
+            <strong className="font-bold">Aviso do Ambiente:</strong> Os usuários exibidos são dados demonstrativos locais. Contas reais serão gerenciadas futuramente pela Prexyon.
+          </p>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100/80 text-amber-900 border border-amber-300 shrink-0">
+            Ambiente Local
+          </span>
+        </div>
+
         {/* Barra Superior com Pesquisa e Ações */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="relative w-full sm:max-w-md">

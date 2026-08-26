@@ -2090,7 +2090,16 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
                       <div className="text-right shrink-0">
                         <div className="text-[10px] font-bold text-slate-400 uppercase">
-                          Preço ({prod.calculationUnit === 'm2' ? 'm²' : prod.calculationUnit === 'linear_meter' ? 'm. lin.' : 'un'})
+                          {(() => {
+                            const mode = prod.pricingMode || (prod.calculationUnit === 'm2' ? 'SQUARE_METER' : prod.calculationUnit === 'linear_meter' ? 'LINEAR_METER' : (prod.category === 'cartoes' || prod.category === 'promocional' ? 'LOT' : 'UNIT'));
+                            if (mode === 'LOT') {
+                              const lot = prod.lotSize || 1000;
+                              return `Preço por lote de ${new Intl.NumberFormat('pt-BR').format(lot)}`;
+                            }
+                            if (mode === 'SQUARE_METER') return 'Preço por m²';
+                            if (mode === 'LINEAR_METER') return 'Preço por metro linear';
+                            return 'Preço por unidade';
+                          })()}
                         </div>
                         {prod.hasPriceConfigured ? (
                           <div className="text-base font-black text-slate-900 font-mono">

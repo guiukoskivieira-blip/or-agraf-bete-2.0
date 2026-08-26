@@ -81,7 +81,7 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
             Olá, {currentUser.name.split(' ')[0]}!
           </h1>
           <p className="text-sm text-blue-100 max-w-xl">
-            Elabore propostas gráficas, aplique descontos comerciais, gere PDFs profissionais e envie pelo WhatsApp integrado.
+            Elabore propostas gráficas, aplique descontos comerciais, gere e baixe propostas em PDF profissional.
           </p>
         </div>
 
@@ -116,7 +116,7 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
           <div className="min-w-0">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Orçamentos Aprovados</div>
             <div className="text-2xl font-black text-emerald-600 leading-tight">{metrics.approvedQuotes}</div>
-            <div className="text-xs text-emerald-700 font-medium mt-0.5">Sincronizados ao ArteFlow</div>
+            <div className="text-xs text-slate-500 font-mono mt-0.5">{formatCentsToBRL(metrics.totalApprovedValueCents)}</div>
           </div>
         </Card>
       </div>

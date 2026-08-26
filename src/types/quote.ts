@@ -173,6 +173,7 @@ export interface Quote {
   arteflowSync?: ArteFlowSyncStatus;
 
   // Auditoria e metadados
+  dataOrigin?: 'demo' | 'user';
   approvedAt?: string;
   lastViewedAt?: string;
   createdAt: string;

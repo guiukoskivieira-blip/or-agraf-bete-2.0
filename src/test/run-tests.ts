@@ -2,6 +2,7 @@ import { runAllDomainTests } from './domain-integrity.test';
 import { runPrexyonReadinessTests } from './prexyon-readiness.test';
 import { runAllCustomerDomainTestsAsync } from './customer-domain.test';
 import { runPricingEngineTestsAsync } from './pricing-engine.test';
+import { runEnvironmentHonestyTests } from './environment-honesty.test';
 
 async function main() {
   console.log('====================================');
@@ -12,8 +13,9 @@ async function main() {
   const prexyon = runPrexyonReadinessTests();
   const customer = await runAllCustomerDomainTestsAsync();
   const pricing = await runPricingEngineTestsAsync();
+  const honesty = runEnvironmentHonestyTests();
 
-  const results = [...domain.results, ...prexyon, ...customer, ...pricing];
+  const results = [...domain.results, ...prexyon, ...customer, ...pricing, ...honesty];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;
   const failed = total - passed;
@@ -33,7 +35,7 @@ async function main() {
   if (failed > 0) {
     process.exit(1);
   } else {
-    console.log('Todos os testes de integridade, status de orçamentos, multi-tenant e clientes passaram com sucesso!\n');
+    console.log('Todos os testes de integridade, status de orçamentos, multi-tenant, clientes, motor de cálculo e honestidade passaram com sucesso!\n');
     process.exit(0);
   }
 }

@@ -345,6 +345,7 @@ export interface Company {
   settings: {
     currency: string; // 'BRL'
   };
+  dataOrigin?: 'demo' | 'user';
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }
@@ -360,6 +361,7 @@ export interface User {
   avatarUrl?: string; // Foto de perfil do usuário (Base64 ou URL segura)
   isActive: boolean;
   isLocked?: boolean;
+  dataOrigin?: 'demo' | 'user';
   lastLoginAt?: string;
   sessionTerminatedAt?: string;
   createdAt: string;

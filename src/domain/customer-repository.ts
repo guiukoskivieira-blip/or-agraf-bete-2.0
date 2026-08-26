@@ -118,6 +118,7 @@ export function getInitialCustomersTemplate(tenantId: string): Customer[] {
         },
         notes: 'Cliente corporativo com faturamento mensal.',
         isActive: true,
+        dataOrigin: 'demo',
         createdAt: timestamp,
         updatedAt: timestamp,
       },
@@ -151,6 +152,7 @@ export function getInitialCustomersTemplate(tenantId: string): Customer[] {
         },
         notes: 'Material promocional e cartões frequentes.',
         isActive: true,
+        dataOrigin: 'demo',
         createdAt: timestamp,
         updatedAt: timestamp,
       },
@@ -302,6 +304,7 @@ export class LocalStorageCustomerRepository implements ICustomerRepository {
       address: data.address,
       notes: (data.notes || '').trim() || undefined,
       isActive: data.isActive !== undefined ? data.isActive : true,
+      dataOrigin: (data as any).dataOrigin || 'user',
       createdAt: now,
       updatedAt: now,
     };

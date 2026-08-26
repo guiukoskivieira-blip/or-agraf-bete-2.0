@@ -33,6 +33,7 @@ import { Badge } from '../components/ui/Badge';
 import { useCommercial } from '../context/CommercialContext';
 import { useTenant } from '../context/TenantContext';
 import { useNotification } from '../context/NotificationContext';
+import { getEnvironmentCapabilities } from '../domain/environment-capabilities';
 import { hasUserPermission } from '../types/tenant';
 import { QUOTE_STATUS_METADATA } from '../domain/quote-status';
 import { formatCentsToBRL } from '../domain/money';
@@ -44,12 +45,14 @@ import { Quote } from '../types/quote';
 interface QuoteDetailsPageProps {
   quoteId: string;
   onBack: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onBack }) => {
+export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onBack, onNavigate }) => {
   const { quotes, approveQuote, rejectQuote, downloadQuotePdf, sendQuoteViaWhatsApp } = useCommercial();
   const { currentCompany, currentUser } = useTenant();
   const { showNotice } = useNotification();
+  const capabilities = getEnvironmentCapabilities();
 
   // WhatsApp Dialog Modal
   const [isWpModalOpen, setIsWpModalOpen] = useState(false);
@@ -99,6 +102,14 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
   const discountCents = quote.discount?.appliedAmountCents || quote.discountCents || 0;
 
   const handleOpenWhatsApp = () => {
+    if (!capabilities.canUseWhatsApp) {
+      showNotice(
+        'WhatsApp Não Configurado',
+        'A integração oficial com o WhatsApp Business ainda não está configurada neste ambiente standalone. Utilize o botão "Baixar PDF" para obter o arquivo oficial da proposta.',
+        'info'
+      );
+      return;
+    }
     setWpRecipientPhone(quote.customerContact || '');
     const defaultMsg = `Olá, ${quote.customerName}! Segue a proposta comercial ${quote.quoteNumber} elaborada pela ${currentCompany.tradeName}.`;
     setWpCustomMessage(defaultMsg);
@@ -400,8 +411,8 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
               </span>
             </div>
 
-            {/* ArteFlow Sync Status */}
-            {quote.arteflowSync?.status === 'synced' && (
+            {/* ArteFlow Sync Status (Apenas quando integração do ecossistema estiver ativa) */}
+            {capabilities.canUseArteFlow && quote.arteflowSync?.status === 'synced' && (
               <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-900 space-y-0.5">
                 <div className="flex items-center gap-1.5 font-bold text-xs">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-600" />

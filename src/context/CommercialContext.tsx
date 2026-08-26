@@ -10,7 +10,14 @@
  */
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
-import { Quote, QuoteStatus, QuoteDiscount, QuoteFinancialTerms, QuoteEvent } from '../types/quote';
+import {
+  Quote,
+  QuoteStatus,
+  QuoteDiscount,
+  QuoteFinancialTerms,
+  QuoteEvent,
+  QuoteVersion,
+} from '../types/quote';
 import { Product, Material, Finishing } from '../types/product';
 import { Customer } from '../types/customer';
 import { QuoteApprovedEventPayload } from '../types/arteflow';
@@ -20,6 +27,7 @@ import { ArteFlowIntegrationService } from '../services/arteflow-integration.ser
 import { PdfExportService } from '../services/pdf-export.service';
 import { WhatsAppIntegrationService } from '../services/whatsapp-integration.service';
 import { calculateQuoteTotals } from '../domain/quote-calculator';
+import { getEnvironmentCapabilities } from '../domain/environment-capabilities';
 import {
   getInitialProductsTemplate,
   initializeTenantProducts,
@@ -35,8 +43,7 @@ import {
   sanitizeDocument,
 } from '../domain/customer-repository';
 
-// Dados Iniciais do Sistema de Orçamentos
-const INITIAL_QUOTES: Quote[] = [
+export const INITIAL_QUOTES: Quote[] = [
   {
     id: 'quot_101',
     tenantId: 'emp_alphaprint_01',
@@ -51,7 +58,7 @@ const INITIAL_QUOTES: Quote[] = [
     items: [
       {
         id: 'item_101',
-        productId: 'prod_emp_alphaprint_01_cartao_visita',
+        productId: 'prod_emp_alphaprint_01_cartao',
         productName: 'Cartão de Visita Couché 300g Laminação Fosca',
         pricingMode: 'LOT',
         quantity: 1000,
@@ -59,25 +66,36 @@ const INITIAL_QUOTES: Quote[] = [
         billedQuantity: 1,
         basePriceCents: 7000,
         unitCostCents: 3500,
-        unitPriceCents: 8500,
+        unitPriceCents: 7000,
         totalPriceCents: 8500,
+        pricingSummary: '1.000 unidades • 1 lote(s) de 1.000 × R$ 70,00 = R$ 70,00',
         materialName: 'Papel Couché 300g',
         finishings: [
           {
-            finishingId: 'f_bopp',
-            name: 'Laminação Fosca BOPP',
-            pricingBasis: 'lot',
+            finishingId: 'fin_refile',
+            name: 'Refile',
+            unitPriceCents: 0,
+            totalPriceCents: 0,
+            isRequired: true,
+            isOptional: false,
+            quantity: 1000,
+          },
+          {
+            finishingId: 'fin_lam',
+            name: 'Laminação fosca',
             unitPriceCents: 1500,
             totalPriceCents: 1500,
+            isRequired: false,
+            isOptional: true,
+            quantity: 1000,
           },
         ],
-        notes: 'Refile reto padrão 9x5cm',
-        pricingSummary: '1.000 unidades • 1 lote de 1.000 × R$ 85,00 = R$ 85,00',
+        notes: 'Corte reto padrão 9x5cm com laminação',
       },
       {
         id: 'item_102',
-        productId: 'prod_emp_alphaprint_01_banner_lona',
-        productName: 'Banner em Lona Frontlight com Bastão e Corda',
+        productId: 'prod_emp_alphaprint_01_banner',
+        productName: 'Banner em Lona Frontlight 440g',
         pricingMode: 'SQUARE_METER',
         quantity: 2,
         widthMm: 1000,
@@ -85,28 +103,41 @@ const INITIAL_QUOTES: Quote[] = [
         areaM2: 3.0,
         billedQuantity: 3.0,
         basePriceCents: 7000,
-        unitCostCents: 4500,
-        unitPriceCents: 9000,
+        unitCostCents: 3200,
+        unitPriceCents: 7000,
         totalPriceCents: 18000,
+        pricingSummary: '2 pç(s) 1.00×1.50m (3.00 m²) × R$ 70,00/m² = R$ 210,00',
         materialName: 'Lona Frontlight 440g',
         finishings: [
           {
-            finishingId: 'f_bastao',
-            name: 'Bastão de Madeira com Ponteiras e Cordão',
-            pricingBasis: 'unit',
-            unitPriceCents: 1000,
-            totalPriceCents: 2000,
+            finishingId: 'fin_bainha',
+            name: 'Bainha',
+            unitPriceCents: 0,
+            totalPriceCents: 0,
+            isRequired: true,
+            isOptional: false,
+            quantity: 2,
+          },
+          {
+            finishingId: 'fin_tubo',
+            name: 'Tubo e cordão',
+            unitPriceCents: 0,
+            totalPriceCents: 0,
+            isRequired: true,
+            isOptional: false,
+            quantity: 2,
           },
         ],
-        pricingSummary: '2 pç(s) 1.00×1.50m (3.00 m²) × R$ 70,00/m² + acabamentos = R$ 180,00',
+        notes: 'Acabamento em madeira redonda e ponteiras plásticas',
       },
     ],
     subtotalCents: 26500,
     discount: {
-      type: 'percentage',
-      value: 10,
+      type: 'fixed',
+      value: 2650,
       appliedAmountCents: 2650,
       reason: 'Desconto comercial primeira compra',
+      userId: 'usr_owner_01',
       userName: 'Carlos Henrique Silva',
       appliedAt: '2026-02-15T10:00:00Z',
     },
@@ -114,15 +145,14 @@ const INITIAL_QUOTES: Quote[] = [
     shippingCents: 0,
     totalCents: 23850,
     estimatedProductionDays: 3,
-    paymentTerms: 'Entrada de R$ 100,00 via Pix e saldo em 30 dias',
+    paymentTerms: '50% entrada + 50% na entrega',
     financialTerms: {
       paymentMethod: 'pix',
       paymentCondition: 'down_payment_and_balance',
-      installmentsCount: 1,
+      installmentsCount: 2,
       downPaymentCents: 10000,
       expectedDownPaymentDate: '2026-02-15',
       installmentIntervalDays: 30,
-      financialNotes: 'Comprovante do Pix da entrada anexado no faturamento',
       installments: [
         {
           installmentNumber: 1,
@@ -139,12 +169,8 @@ const INITIAL_QUOTES: Quote[] = [
     salespersonId: 'usr_owner_01',
     salespersonName: 'Carlos Henrique Silva',
     versions: [],
+    dataOrigin: 'demo',
     approvedAt: '2026-02-15T10:30:00Z',
-    arteflowSync: {
-      status: 'synced',
-      arteflowOrderId: 'AF-PED-2026-089',
-      syncedAt: '2026-02-15T10:30:05Z',
-    },
     events: [
       {
         id: 'evt_01',
@@ -159,8 +185,8 @@ const INITIAL_QUOTES: Quote[] = [
         id: 'evt_02',
         quoteId: 'quot_101',
         tenantId: 'emp_alphaprint_01',
-        type: 'sent_whatsapp',
-        description: 'Proposta comercial e PDF enviados via WhatsApp para (11) 98765-4321.',
+        type: 'updated',
+        description: 'Proposta comercial e PDF gerados localmente.',
         createdAt: '2026-02-15T09:50:00Z',
         userName: 'Carlos Henrique Silva',
       },
@@ -169,7 +195,7 @@ const INITIAL_QUOTES: Quote[] = [
         quoteId: 'quot_101',
         tenantId: 'emp_alphaprint_01',
         type: 'approved',
-        description: 'Orçamento aprovado pelo cliente. Evento QUOTE_APPROVED enviado ao ArteFlow.',
+        description: 'Orçamento aprovado pelo cliente comercialmente.',
         createdAt: '2026-02-15T10:30:00Z',
         userName: 'Carlos Henrique Silva',
       },
@@ -188,6 +214,7 @@ const INITIAL_QUOTES: Quote[] = [
     customerEmail: 'contato@studiobeleza.com.br',
     currentVersion: 1,
     status: 'awaiting_customer',
+    dataOrigin: 'demo',
     items: [
       {
         id: 'item_103',
@@ -786,6 +813,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       commissionRatePercent: data.commissionRatePercent ?? null,
       commissionAmountCents: data.commissionAmountCents ?? null,
       versions: [],
+      dataOrigin: 'user',
       events: [
         {
           id: `evt_${Date.now()}`,
@@ -929,7 +957,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     return success;
   };
 
-  // Aprovação de Orçamento e Sincronização QUOTE_APPROVED com ArteFlow
+  // Aprovação de Orçamento
   const approveQuote = (quoteId: string): { success: boolean; eventPayload?: QuoteApprovedEventPayload } => {
     const targetQuote = currentTenantQuotes.find(q => q.id === quoteId);
     if (!targetQuote) {
@@ -942,7 +970,10 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       return { success: true };
     }
 
-    const payload = ArteFlowIntegrationService.buildQuoteApprovedEvent(targetQuote, currentUser);
+    const capabilities = getEnvironmentCapabilities();
+    const payload = capabilities.canUseArteFlow
+      ? ArteFlowIntegrationService.buildQuoteApprovedEvent(targetQuote, currentUser)
+      : undefined;
 
     const now = new Date().toISOString();
     setQuotesList(prev =>
@@ -953,7 +984,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
           quoteId: q.id,
           tenantId,
           type: 'approved',
-          description: 'Orçamento aprovado pelo cliente. Evento QUOTE_APPROVED gerado para o ArteFlow.',
+          description: 'Orçamento aprovado pelo cliente comercialmente.',
           createdAt: now,
           userId: currentUser.id,
           userName: currentUser.name,
@@ -962,11 +993,6 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
           ...q,
           status: 'approved',
           approvedAt: now,
-          arteflowSync: {
-            status: 'synced',
-            arteflowOrderId: `AF-PED-${Date.now().toString().slice(-4)}`,
-            syncedAt: now,
-          },
           events: [approveEvent, ...(q.events || [])],
           updatedAt: now,
         };
@@ -975,7 +1001,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
 
     showNotice(
       'Orçamento Aprovado',
-      `Orçamento aprovado e contrato QUOTE_APPROVED preparado para o ArteFlow!`,
+      'Orçamento aprovado comercialmente com sucesso!',
       'success'
     );
     return { success: true, eventPayload: payload };
@@ -1034,12 +1060,25 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
-  // Envio pelo WhatsApp
+  // Envio pelo WhatsApp (Desativado em Standalone com explicação honesta)
   const sendQuoteViaWhatsApp = (
     quoteId: string,
     customMessage?: string,
     phone?: string
   ): { success: boolean; messageUrl?: string; error?: string } => {
+    const capabilities = getEnvironmentCapabilities();
+    if (!capabilities.canUseWhatsApp) {
+      showNotice(
+        'WhatsApp Não Configurado',
+        'A integração oficial com o WhatsApp Business ainda não está configurada neste ambiente.',
+        'info'
+      );
+      return {
+        success: false,
+        error: 'A integração oficial com o WhatsApp Business ainda não está configurada neste ambiente.',
+      };
+    }
+
     const quote = currentTenantQuotes.find(q => q.id === quoteId);
     if (!quote) {
       return { success: false, error: 'Orçamento não encontrado.' };

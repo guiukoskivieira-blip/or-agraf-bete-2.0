@@ -99,40 +99,47 @@ export const CompanyDataPage: React.FC<CompanyDataPageProps> = ({ onNavigateSett
       <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
         <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-6">
           {/* Sub-abas internas */}
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('info')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeSubTab === 'info'
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              Identificação & Contato
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('address')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeSubTab === 'address'
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              Endereço Físico
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('commercial')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeSubTab === 'commercial'
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              Prazos & Parâmetros Comerciais
-            </button>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('info')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeSubTab === 'info'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Identificação & Contato
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('address')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeSubTab === 'address'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Endereço Físico
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('commercial')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeSubTab === 'commercial'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Parâmetros Comerciais & PDF
+              </button>
+            </div>
+            {currentCompany.dataOrigin === 'demo' && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Empresa demonstrativa
+              </span>
+            )}
           </div>
 
           {/* Sub-aba 1: Identificação & Contato */}

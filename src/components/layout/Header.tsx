@@ -8,6 +8,7 @@ import React from 'react';
 import { Menu, PlusCircle, Bell, Search } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
+import { getEnvironmentCapabilities } from '../../domain/environment-capabilities';
 import { Button } from '../ui/Button';
 import { OrcaGrafLogo } from '../common/OrcaGrafLogo';
 
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { currentUser } = useTenant();
   const { showNotice } = useNotification();
+  const capabilities = getEnvironmentCapabilities();
 
   const handleNotificationsClick = () => {
     showNotice('Avisos Comerciais', 'Nenhum alerta pendente no momento.', 'info');
@@ -33,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Left side: Mobile Menu trigger + Clean App Title/Logo on Mobile */}
+      {/* Left side: Mobile Menu trigger + Clean App Title/Logo on Mobile + Demo badge */}
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenMobileMenu}
@@ -46,6 +48,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="lg:hidden flex items-center">
           <OrcaGrafLogo size="sm" showSubtitle={false} />
         </div>
+
+        {capabilities.isDemoData && (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
+            Ambiente de demonstração
+          </span>
+        )}
       </div>
 
       {/* Right side: Action, Search, Notifications, User */}

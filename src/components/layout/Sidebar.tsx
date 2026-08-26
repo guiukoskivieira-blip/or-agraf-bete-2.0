@@ -128,13 +128,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="p-2 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between">
               <span className="font-medium text-slate-700">ArteCheck</span>
               <span className="text-[10px] text-teal-600 font-semibold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/60">
-                Pré-impressão
+                Pré-impressão • Em breve
               </span>
             </div>
             <div className="p-2 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between">
               <span className="font-medium text-slate-700">ArteFlow</span>
               <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200/60">
-                Produção & PCP
+                Produção & PCP • Em breve
               </span>
             </div>
           </div>

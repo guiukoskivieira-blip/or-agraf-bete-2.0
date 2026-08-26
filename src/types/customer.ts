@@ -41,6 +41,7 @@ export interface Customer {
   address?: CustomerAddress;
   notes?: string;
   isActive: boolean;
+  dataOrigin?: 'demo' | 'user';
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }
