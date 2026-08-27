@@ -1,6 +1,6 @@
 /**
  * @file App.tsx
- * @description Ponto de Entrada Principal e Roteador Completo da Aplicação OrçaGraf
+ * @description Ponto de Entrada Principal, Roteador e Proteção de Autenticação Real do OrçaGraf
  * @project OrçaGraf
  */
 
@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { TenantProvider } from './context/TenantContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { CommercialProvider } from './context/CommercialContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { GeneralPage } from './pages/GeneralPage';
 import { QuotesPage } from './pages/QuotesPage';
@@ -21,6 +22,10 @@ import { UsersPermissionsPage } from './pages/profile/UsersPermissionsPage';
 import { CompanyDataPage } from './pages/profile/CompanyDataPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { QuickSearchModal } from './components/common/QuickSearchModal';
+import { LoginPage } from './pages/auth/LoginPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
+import { TechnicalConfigErrorPage } from './components/common/TechnicalConfigErrorPage';
 
 interface ParsedRoute {
   tab: string;
@@ -38,7 +43,6 @@ function parseCurrentRoute(): ParsedRoute {
   const parts = hash.split('/').filter(Boolean);
   const primary = parts[0]?.toLowerCase();
   const secondary = parts[1]?.toLowerCase();
-  const tertiary = parts[2]?.toLowerCase();
 
   // /quotes/:quoteId
   if (primary === 'quotes' && secondary) {
@@ -192,12 +196,87 @@ const MainRouter: React.FC = () => {
   );
 };
 
+const AuthRouteGuard: React.FC = () => {
+  const { isModeConnected, isConfigured, configError, loading, user } = useAuth();
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'reset-password'>('login');
+
+  // Detecta se a URL contém token de recuperação do Supabase (#access_token=...&type=recovery ou #/reset-password)
+  useEffect(() => {
+    const handleAuthHash = () => {
+      const hash = window.location.hash || '';
+      if (hash.includes('type=recovery') || hash.includes('reset-password')) {
+        setAuthView('reset-password');
+      }
+    };
+    handleAuthHash();
+    window.addEventListener('hashchange', handleAuthHash);
+    return () => window.removeEventListener('hashchange', handleAuthHash);
+  }, []);
+
+  // 1. Modo Standalone: Preserva funcionamento 100% livre e direto do OrçaGraf
+  if (!isModeConnected) {
+    return <MainRouter />;
+  }
+
+  // 2. Modo Conectado com Configuração Incompleta: Exibe tela técnica segura
+  if (configError || !isConfigured) {
+    return <TechnicalConfigErrorPage message={configError || 'Configuração do Supabase incompleta.'} />;
+  }
+
+  // 3. Carregando Sessão Inicial no Modo Conectado
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4" role="status" aria-live="polite">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-slate-600 font-medium text-sm">Verificando sessão de acesso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Fluxo de Redefinição de Senha
+  if (authView === 'reset-password') {
+    return (
+      <ResetPasswordPage
+        onNavigateLogin={() => {
+          window.location.hash = '';
+          setAuthView('login');
+        }}
+        onSuccess={() => {
+          window.location.hash = '';
+          setAuthView('login');
+        }}
+      />
+    );
+  }
+
+  // 5. Fluxo de Esqueci Minha Senha
+  if (authView === 'forgot-password') {
+    return <ForgotPasswordPage onNavigateLogin={() => setAuthView('login')} />;
+  }
+
+  // 6. Modo Conectado Sem Sessão Ativa: Exibe Login
+  if (!user) {
+    return (
+      <LoginPage
+        onNavigateForgotPassword={() => setAuthView('forgot-password')}
+      />
+    );
+  }
+
+  // 7. Modo Conectado Autenticado: Acesso Autorizado
+  return <MainRouter />;
+};
+
 export default function App() {
   return (
     <TenantProvider>
       <NotificationProvider>
         <CommercialProvider>
-          <MainRouter />
+          <AuthProvider>
+            <AuthRouteGuard />
+          </AuthProvider>
         </CommercialProvider>
       </NotificationProvider>
     </TenantProvider>

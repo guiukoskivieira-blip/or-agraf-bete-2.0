@@ -7,6 +7,7 @@ import { runFinishingsEngineTests } from './finishings-engine.test';
 import { runFinishingsCompatibilityTests } from './finishings-compatibility.test';
 import { runPdfExportTests } from './pdf-export.test';
 import { runAccessibilityResponsiveTests } from './accessibility-responsive.test';
+import { runAuthFoundationTests } from './auth.test';
 
 async function main() {
   console.log('====================================');
@@ -22,6 +23,7 @@ async function main() {
   const compatibility = runFinishingsCompatibilityTests();
   const pdfExport = runPdfExportTests();
   const a11yResponsive = runAccessibilityResponsiveTests();
+  const auth = runAuthFoundationTests();
 
   const results = [
     ...domain.results,
@@ -33,6 +35,7 @@ async function main() {
     ...compatibility,
     ...pdfExport,
     ...a11yResponsive,
+    ...auth,
   ];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;

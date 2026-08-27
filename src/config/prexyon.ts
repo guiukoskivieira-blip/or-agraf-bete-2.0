@@ -21,13 +21,21 @@ function normalizeUrl(value: unknown): string | undefined {
 export function getPrexyonRuntimeConfig(
   env: Record<string, unknown> = import.meta.env
 ): PrexyonRuntimeConfig {
-  const requestedMode = env.VITE_PREXYON_MODE === 'platform' ? 'platform' : 'standalone';
+  const requestedMode =
+    env.VITE_PREXYON_MODE === 'platform'
+      ? 'platform'
+      : env.VITE_PREXYON_MODE === 'connected'
+        ? 'connected'
+        : 'standalone';
   const portalUrl = normalizeUrl(env.VITE_PREXYON_PORTAL_URL);
 
   // O modo plataforma só é ativado quando existe um portal HTTPS/localhost válido.
-  const mode: PrexyonRuntimeMode = requestedMode === 'platform' && portalUrl
-    ? 'platform'
-    : 'standalone';
+  const mode: PrexyonRuntimeMode =
+    requestedMode === 'platform' && portalUrl
+      ? 'platform'
+      : requestedMode === 'connected'
+        ? 'connected'
+        : 'standalone';
 
   return {
     mode,

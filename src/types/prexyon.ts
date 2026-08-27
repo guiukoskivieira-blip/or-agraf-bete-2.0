@@ -7,7 +7,7 @@
 
 export type PrexyonProductId = 'orcagraf' | 'artecheck' | 'arteflow';
 
-export type PrexyonRuntimeMode = 'standalone' | 'platform';
+export type PrexyonRuntimeMode = 'standalone' | 'platform' | 'connected';
 
 export type ProductEntitlementStatus =
   | 'active'

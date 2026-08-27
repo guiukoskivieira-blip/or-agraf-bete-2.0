@@ -6,13 +6,14 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Camera, Trash2, Save, User as UserIcon, Lock, CheckCircle2 } from 'lucide-react';
+import { Camera, Trash2, Save, User as UserIcon, Lock, LogOut } from 'lucide-react';
 import { SettingsLayout, SettingsTab } from '../../components/layout/SettingsLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface MyProfilePageProps {
   onNavigateSettings: (tab: SettingsTab) => void;
@@ -21,6 +22,7 @@ interface MyProfilePageProps {
 export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings }) => {
   const { currentUser, currentCompany, updateUserProfile } = useTenant();
   const { showNotice } = useNotification();
+  const { isModeConnected, signOut } = useAuth();
 
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email);
@@ -191,7 +193,20 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
             </div>
           </div>
 
-          <div className="pt-4 flex justify-end">
+          <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+            {isModeConnected ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                icon={<LogOut className="w-3.5 h-3.5" />}
+                onClick={() => signOut()}
+              >
+                Sair da Conta
+              </Button>
+            ) : <div />}
+
             <Button type="submit" variant="primary" icon={<Save className="w-4 h-4" />}>
               Salvar Alterações
             </Button>
