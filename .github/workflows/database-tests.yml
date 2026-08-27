@@ -1,0 +1,41 @@
+name: Database Migrations & Contract Tests
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/database-tests.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/database-tests.yml'
+
+jobs:
+  test-database:
+    name: Supabase pgTAP Database Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+
+      - name: Start temporary local Supabase database
+        run: supabase start
+
+      - name: Run pgTAP database tests
+        run: supabase test db
+
+      - name: Stop temporary local Supabase database
+        if: always()
+        run: supabase stop --no-backup

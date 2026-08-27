@@ -1,196 +1,15 @@
 -- =============================================================================
--- Migration: 0007_transactional_functions.sql
--- Description: Funções Transacionais do Domínio OrçaGraf (Prexyon-Ready)
+-- Migration: 0008_fix_monetary_event_formatting.sql
+-- Description: Correção de chamada de função pg_catalog.btrim em formatação de eventos
 -- Project: OrçaGraf (Prexyon-Ready Foundation)
 -- =============================================================================
 
 -- =============================================================================
--- 1. CRIAÇÃO DE ORGANIZAÇÃO COM OWNER (ONBOARDING ATÔMICO)
--- Status: Candidata para homologação (não produção até execução em PostgreSQL real)
--- =============================================================================
-CREATE OR REPLACE FUNCTION create_organization_with_owner(
-  p_trade_name pg_catalog.text,
-  p_corporate_name pg_catalog.text DEFAULT NULL,
-  p_document pg_catalog.text DEFAULT NULL,
-  p_email pg_catalog.text DEFAULT NULL,
-  p_phone pg_catalog.text DEFAULT NULL
-)
-RETURNS pg_catalog.uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_user_id pg_catalog.uuid;
-  v_user_name pg_catalog.text;
-  v_org_id pg_catalog.uuid;
-  v_current_year pg_catalog.int4;
-BEGIN
-  v_user_id := auth.uid();
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Operação negada: usuário não autenticado.';
-  END IF;
-
-  SELECT full_name INTO v_user_name FROM public.profiles WHERE id = v_user_id;
-  IF v_user_name IS NULL THEN
-    v_user_name := 'Proprietário Inicial';
-  END IF;
-
-  v_current_year := EXTRACT(YEAR FROM pg_catalog.timezone('utc', pg_catalog.now()))::pg_catalog.int4;
-
-  -- 1. Criação da Organização (Gráfica)
-  INSERT INTO public.organizations (
-    trade_name,
-    corporate_name,
-    document,
-    email,
-    phone,
-    is_active
-  ) VALUES (
-    p_trade_name,
-    p_corporate_name,
-    p_document,
-    p_email,
-    p_phone,
-    true
-  ) RETURNING id INTO v_org_id;
-
-  -- 2. Vínculo do Usuário como OWNER
-  INSERT INTO public.organization_members (
-    organization_id,
-    user_id,
-    role,
-    base_profile,
-    permissions_json,
-    is_active,
-    is_locked
-  ) VALUES (
-    v_org_id,
-    v_user_id,
-    'owner'::public.user_role,
-    'admin'::public.base_profile,
-    '{}'::pg_catalog.jsonb,
-    true,
-    false
-  );
-
-  -- 3. Contrato de Assinatura Preparatório (Prexyon)
-  -- NOTA DE SEGURANÇA: Não cria assinatura 'active' ou 'trial' fictícia.
-  -- Fica explicitamente 'pending_configuration' até o portal Prexyon ativar o serviço.
-  INSERT INTO public.product_subscriptions (
-    organization_id,
-    product_code,
-    status,
-    metadata_json
-  ) VALUES (
-    v_org_id,
-    'orcagraf'::public.subscription_product_code,
-    'pending_configuration'::public.subscription_status,
-    pg_catalog.jsonb_build_object('managedBy', 'prexyon_portal', 'tier', 'unconfigured')
-  );
-
-  -- 4. Inicialização da Sequência de Numeração
-  INSERT INTO public.organization_quote_sequences (
-    organization_id,
-    current_year,
-    last_number
-  ) VALUES (
-    v_org_id,
-    v_current_year,
-    0
-  );
-
-  -- 5. Registro de Auditoria
-  INSERT INTO public.audit_logs (
-    organization_id,
-    performed_by_user_id,
-    performed_by_user_name,
-    target_user_id,
-    target_user_name,
-    action_type,
-    description,
-    details_json
-  ) VALUES (
-    v_org_id,
-    v_user_id,
-    v_user_name,
-    v_user_id,
-    v_user_name,
-    'user_created'::public.audit_action_type,
-    'Organização criada com sucesso e usuário configurado como proprietário (owner).',
-    pg_catalog.jsonb_build_object('orgId', v_org_id, 'tradeName', p_trade_name)
-  );
-
-  RETURN v_org_id;
-END;
-$$;
-
--- =============================================================================
--- 2. GERAÇÃO DE NÚMERO DE ORÇAMENTO CONCORRENTE E TRANSACIONAL (ORC-YYYY-XXXX)
--- Status: Candidata para homologação (não produção até execução em PostgreSQL real)
--- =============================================================================
-CREATE OR REPLACE FUNCTION next_quote_number(p_organization_id pg_catalog.uuid)
-RETURNS pg_catalog.text
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_current_year pg_catalog.int4;
-  v_seq_year pg_catalog.int4;
-  v_next_num pg_catalog.int4;
-  v_formatted_number pg_catalog.text;
-BEGIN
-  IF NOT public.is_org_member(p_organization_id) THEN
-    RAISE EXCEPTION 'Operação negada: usuário não é membro desta organização.';
-  END IF;
-
-  v_current_year := EXTRACT(YEAR FROM pg_catalog.timezone('utc', pg_catalog.now()))::pg_catalog.int4;
-
-  -- Bloqueio transacional da linha de sequência (concurrency-safe)
-  SELECT current_year, last_number
-    INTO v_seq_year, v_next_num
-    FROM public.organization_quote_sequences
-   WHERE organization_id = p_organization_id
-     FOR UPDATE;
-
-  IF NOT FOUND THEN
-    -- Inicializa caso ainda não exista
-    v_seq_year := v_current_year;
-    v_next_num := 1;
-    INSERT INTO public.organization_quote_sequences (organization_id, current_year, last_number)
-    VALUES (p_organization_id, v_current_year, 1);
-  ELSE
-    IF v_seq_year <> v_current_year THEN
-      v_seq_year := v_current_year;
-      v_next_num := 1;
-    ELSE
-      v_next_num := v_next_num + 1;
-    END IF;
-
-    UPDATE public.organization_quote_sequences
-       SET current_year = v_seq_year,
-           last_number = v_next_num,
-           updated_at = pg_catalog.timezone('utc', pg_catalog.now())
-     WHERE organization_id = p_organization_id;
-  END IF;
-
-  v_formatted_number := 'ORC-' || v_seq_year::pg_catalog.text || '-' || pg_catalog.lpad(v_next_num::pg_catalog.text, 4, '0');
-  RETURN v_formatted_number;
-END;
-$$;
-
--- =============================================================================
--- 3. CRIAÇÃO DE ORÇAMENTO COM VALIDAÇÃO E SNAPSHOTS
+-- 1. CRIAÇÃO DE ORÇAMENTO COM VALIDAÇÃO E SNAPSHOTS
 -- Status: BLOQUEADA PARA PRODUÇÃO (CONTRATO INTERNO EM DESENVOLVIMENTO)
--- NOTA ARQUITETURAL:
--- Somar os totais dos itens informados no payload NÃO equivale a recalcular
--- as fórmulas canônicas de precificação (UNIT, LOT, SQUARE_METER, LINEAR_METER
--- e bases de acabamentos técnicos por área, perímetro, milheiro ou fixo).
--- Por segurança, esta função NÃO é concedida a usuários autenticados em produção.
--- A criação de orçamentos remota será delegada a uma Edge Function/RPC na Fase 1B.
+-- Correção: pg_catalog.btrim para compatibilidade com catálogo interno do PostgreSQL
 -- =============================================================================
-CREATE OR REPLACE FUNCTION create_quote_with_items(
+CREATE OR REPLACE FUNCTION public.create_quote_with_items(
   p_organization_id pg_catalog.uuid,
   p_quote pg_catalog.jsonb,
   p_items pg_catalog.jsonb,
@@ -489,7 +308,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 6. Registro Inicial no Histórico de Eventos
+  -- 6. Registro Inicial no Histórico de Eventos (com pg_catalog.btrim)
   INSERT INTO public.quote_events (
     organization_id,
     quote_id,
@@ -504,7 +323,7 @@ BEGIN
     v_quote_id,
     1,
     'QUOTE_CREATED',
-    'Orçamento comercial emitido no valor de R$ ' || pg_catalog.trim(pg_catalog.to_char(v_computed_total / 100.0, '999G999G990D00')) || '.',
+    'Orçamento comercial emitido no valor de R$ ' || pg_catalog.btrim(pg_catalog.to_char(v_computed_total / 100.0, '999G999G990D00')) || '.',
     v_user_id,
     v_user_name,
     pg_catalog.jsonb_build_object('quoteNumber', v_quote_number, 'totalCents', v_computed_total)
@@ -515,10 +334,11 @@ END;
 $$;
 
 -- =============================================================================
--- 4. APROVAÇÃO COMERCIAL DE ORÇAMENTO (COM PROTEÇÃO DE PERMISSÃO)
--- Status: Candidata para homologação (não produção até execução em PostgreSQL real)
+-- 2. APROVAÇÃO COMERCIAL DE ORÇAMENTO (COM PROTEÇÃO DE PERMISSÃO)
+-- Status: Candidata para homologação
+-- Correção: pg_catalog.btrim para compatibilidade com catálogo interno do PostgreSQL
 -- =============================================================================
-CREATE OR REPLACE FUNCTION approve_quote(
+CREATE OR REPLACE FUNCTION public.approve_quote(
   p_organization_id pg_catalog.uuid,
   p_quote_id pg_catalog.uuid,
   p_notes pg_catalog.text DEFAULT NULL
@@ -584,7 +404,7 @@ BEGIN
    WHERE id = p_quote_id
      AND organization_id = p_organization_id;
 
-  -- Registro de Evento
+  -- Registro de Evento (com pg_catalog.btrim)
   INSERT INTO public.quote_events (
     organization_id,
     quote_id,
@@ -599,7 +419,7 @@ BEGIN
     p_quote_id,
     1,
     'QUOTE_APPROVED',
-    'Orçamento comercial formalmente aprovado no valor de R$ ' || pg_catalog.trim(pg_catalog.to_char(v_total_cents / 100.0, '999G999G990D00')) || '.',
+    'Orçamento comercial formalmente aprovado no valor de R$ ' || pg_catalog.btrim(pg_catalog.to_char(v_total_cents / 100.0, '999G999G990D00')) || '.',
     v_user_id,
     v_user_name,
     pg_catalog.jsonb_build_object('approvedBy', v_user_name, 'notes', p_notes)
@@ -610,152 +430,16 @@ END;
 $$;
 
 -- =============================================================================
--- 5. RECUSA / CANCELAMENTO COMERCIAL DE ORÇAMENTO
--- Status: Candidata para homologação (não produção até execução em PostgreSQL real)
--- =============================================================================
-CREATE OR REPLACE FUNCTION reject_quote(
-  p_organization_id pg_catalog.uuid,
-  p_quote_id pg_catalog.uuid,
-  p_reason pg_catalog.text DEFAULT NULL
-)
-RETURNS pg_catalog.bool
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_user_id pg_catalog.uuid;
-  v_user_name pg_catalog.text;
-BEGIN
-  v_user_id := auth.uid();
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Operação negada: usuário não autenticado.';
-  END IF;
-
-  IF NOT public.is_org_member(p_organization_id) THEN
-    RAISE EXCEPTION 'Operação negada: usuário não é membro desta organização.';
-  END IF;
-
-  IF NOT public.has_org_permission(p_organization_id, 'quotes', 'cancel') THEN
-    RAISE EXCEPTION 'Operação negada: usuário sem permissão para recusar ou cancelar orçamentos.';
-  END IF;
-
-  SELECT full_name INTO v_user_name FROM public.profiles WHERE id = v_user_id;
-  IF v_user_name IS NULL THEN
-    v_user_name := 'Comercial';
-  END IF;
-
-  UPDATE public.quotes
-     SET status = 'rejected'::public.quote_status,
-         rejected_at = pg_catalog.timezone('utc', pg_catalog.now()),
-         internal_notes = CASE WHEN p_reason IS NOT NULL THEN COALESCE(internal_notes || E'\nMotivo de recusa: ', '') || p_reason ELSE internal_notes END,
-         updated_at = pg_catalog.timezone('utc', pg_catalog.now())
-   WHERE id = p_quote_id
-     AND organization_id = p_organization_id;
-
-  INSERT INTO public.quote_events (
-    organization_id,
-    quote_id,
-    version,
-    event_type,
-    description,
-    user_id,
-    user_name,
-    metadata_json
-  ) VALUES (
-    p_organization_id,
-    p_quote_id,
-    1,
-    'QUOTE_REJECTED',
-    'Orçamento marcado como recusado/cancelado.',
-    v_user_id,
-    v_user_name,
-    pg_catalog.jsonb_build_object('reason', p_reason)
-  );
-
-  RETURN true;
-END;
-$$;
-
--- =============================================================================
--- 6. REGISTRO AVULSO DE EVENTO (APPEND-ONLY)
--- Status: Candidata para homologação (não produção até execução em PostgreSQL real)
--- =============================================================================
-CREATE OR REPLACE FUNCTION append_quote_event(
-  p_organization_id pg_catalog.uuid,
-  p_quote_id pg_catalog.uuid,
-  p_event_type pg_catalog.text,
-  p_description pg_catalog.text,
-  p_metadata pg_catalog.jsonb DEFAULT '{}'::pg_catalog.jsonb
-)
-RETURNS pg_catalog.uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_user_id pg_catalog.uuid;
-  v_user_name pg_catalog.text;
-  v_event_id pg_catalog.uuid;
-BEGIN
-  v_user_id := auth.uid();
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Operação negada: usuário não autenticado.';
-  END IF;
-
-  IF NOT public.is_org_member(p_organization_id) THEN
-    RAISE EXCEPTION 'Operação negada: usuário não é membro desta organização.';
-  END IF;
-
-  SELECT full_name INTO v_user_name FROM public.profiles WHERE id = v_user_id;
-  IF v_user_name IS NULL THEN
-    v_user_name := 'Atendente';
-  END IF;
-
-  INSERT INTO public.quote_events (
-    organization_id,
-    quote_id,
-    version,
-    event_type,
-    description,
-    user_id,
-    user_name,
-    metadata_json
-  ) VALUES (
-    p_organization_id,
-    p_quote_id,
-    1,
-    p_event_type,
-    p_description,
-    v_user_id,
-    v_user_name,
-    p_metadata
-  ) RETURNING id INTO v_event_id;
-
-  RETURN v_event_id;
-END;
-$$;
-
--- =============================================================================
--- 7. REVOGAÇÃO DE ACESSO PÚBLICO / ANÔNIMO E CONCESSÕES CONTROLADAS
+-- 3. REAPLICAÇÃO EXPLÍCITA DE PERMISSÕES CONTROLADAS
 -- =============================================================================
 
--- Revoga execução pública e anônima de todas as funções
-REVOKE ALL ON FUNCTION create_organization_with_owner(pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION next_quote_number(pg_catalog.uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION create_quote_with_items(pg_catalog.uuid, pg_catalog.jsonb, pg_catalog.jsonb, pg_catalog.text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION approve_quote(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION reject_quote(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION append_quote_event(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text, pg_catalog.text, pg_catalog.jsonb) FROM PUBLIC, anon;
+-- Revoga execução pública e anônima
+REVOKE ALL ON FUNCTION public.create_quote_with_items(pg_catalog.uuid, pg_catalog.jsonb, pg_catalog.jsonb, pg_catalog.text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.approve_quote(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text) FROM PUBLIC, anon;
 
--- Concede SOMENTE às funções candidatas a homologação
-GRANT EXECUTE ON FUNCTION create_organization_with_owner(pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text) TO authenticated;
-GRANT EXECUTE ON FUNCTION next_quote_number(pg_catalog.uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION approve_quote(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text) TO authenticated;
-GRANT EXECUTE ON FUNCTION reject_quote(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text) TO authenticated;
-GRANT EXECUTE ON FUNCTION append_quote_event(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text, pg_catalog.text, pg_catalog.jsonb) TO authenticated;
+-- Concede SOMENTE approve_quote para authenticated
+GRANT EXECUTE ON FUNCTION public.approve_quote(pg_catalog.uuid, pg_catalog.uuid, pg_catalog.text) TO authenticated;
 
 -- NOTA CRÍTICA DE SEGURANÇA:
 -- create_quote_with_items PERMANECE REVOGADA DE 'authenticated'.
--- Ela não é concedida ao cliente web enquanto o motor de fórmulas completas
--- não for implementado e homologado no servidor (Fase 1B).
+-- Nenhuma concessão para authenticated é realizada para create_quote_with_items.

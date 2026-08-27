@@ -54,9 +54,9 @@ Todas as funções `SECURITY DEFINER` utilizam estritamente `SET search_path = '
    - 100% das funções `SECURITY DEFINER` possuem `SET search_path = ''`.
    - Nenhuma tabela, tipo ou operador depende de resolução implícita.
    - Nenhuma chave secreta ou privilégio `service_role` foi exposto.
-3. **Suíte de Testes SQL (`tests/database-contract.test.sql`):**
-   - Especificação declarativa completa contendo 10 blocos de asserção para execução em transação com `ROLLBACK`.
-   - **Status de Execução:** Escrita e estaticamente validada; execução real ocorrerá na Fase 1B.
+3. **Suíte de Testes pgTAP (`tests/database/database-contract.test.sql`):**
+   - Especificação declarativa completa contendo 31 asserções pgTAP para execução automatizada via `supabase test db` no GitHub Actions.
+   - **Status de Execução:** Pronta para execução automatizada em container temporário isolado via GitHub Actions.
 
 ---
 
