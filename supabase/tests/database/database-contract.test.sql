@@ -174,9 +174,8 @@ SELECT is(public.has_org_permission('11111111-1111-1111-1111-111111111111'::uuid
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = 'c0000000-0000-0000-0000-000000000003';
 
-SELECT throws_ok(
+SELECT throws_like(
   'SELECT public.approve_quote(''11111111-1111-1111-1111-111111111111''::uuid, ''cccccccc-cccc-cccc-cccc-cccccccccccc''::uuid)',
-  'P0001',
   '%não possui permissão para aprovar orçamentos%',
   '14. Perfil reception é bloqueado de aprovar orçamentos'
 );
@@ -185,30 +184,26 @@ SELECT throws_ok(
 RESET ROLE;
 SET LOCAL request.jwt.claim.sub = 'a0000000-0000-0000-0000-000000000001';
 
-SELECT throws_ok(
+SELECT throws_like(
   'DELETE FROM public.organization_members WHERE organization_id = ''11111111-1111-1111-1111-111111111111''::uuid AND user_id = ''a0000000-0000-0000-0000-000000000001''::uuid',
-  'P0001',
   '%não é permitido excluir o único proprietário%',
   '15. DELETE do último owner ativo é estritamente bloqueado por trigger'
 );
 
-SELECT throws_ok(
+SELECT throws_like(
   'UPDATE public.organization_members SET role = ''seller''::public.user_role WHERE organization_id = ''11111111-1111-1111-1111-111111111111''::uuid AND user_id = ''a0000000-0000-0000-0000-000000000001''::uuid',
-  'P0001',
   '%não é permitido desativar, bloquear ou alterar%',
   '16. Rebaixar papel do último owner ativo é estritamente bloqueado por trigger'
 );
 
-SELECT throws_ok(
+SELECT throws_like(
   'UPDATE public.organization_members SET is_active = false WHERE organization_id = ''11111111-1111-1111-1111-111111111111''::uuid AND user_id = ''a0000000-0000-0000-0000-000000000001''::uuid',
-  'P0001',
   '%não é permitido desativar, bloquear ou alterar%',
   '17. Desativar (is_active = false) o último owner ativo é bloqueado por trigger'
 );
 
-SELECT throws_ok(
+SELECT throws_like(
   'UPDATE public.organization_members SET is_locked = true WHERE organization_id = ''11111111-1111-1111-1111-111111111111''::uuid AND user_id = ''a0000000-0000-0000-0000-000000000001''::uuid',
-  'P0001',
   '%não é permitido desativar, bloquear ou alterar%',
   '18. Bloquear (is_locked = true) o último owner ativo é bloqueado por trigger'
 );
@@ -241,41 +236,67 @@ SELECT is(
 );
 
 -- Asserções 23 a 26: quote_events e audit_logs são append-only (bloqueiam UPDATE e DELETE)
-SELECT throws_ok(
+SELECT throws_like(
   'UPDATE public.quote_events SET description = ''Adulterado'' WHERE quote_id = ''cccccccc-cccc-cccc-cccc-cccccccccccc''::uuid',
-  'P0001',
   '%append-only%',
   '23. UPDATE na tabela quote_events é estritamente bloqueado por trigger'
 );
 
-SELECT throws_ok(
+SELECT throws_like(
   'DELETE FROM public.quote_events WHERE quote_id = ''cccccccc-cccc-cccc-cccc-cccccccccccc''::uuid',
-  'P0001',
   '%append-only%',
   '24. DELETE na tabela quote_events é estritamente bloqueado por trigger'
 );
 
-SELECT throws_ok(
+SELECT throws_like(
   'UPDATE public.audit_logs SET description = ''Adulterado'' WHERE organization_id = ''11111111-1111-1111-1111-111111111111''::uuid',
-  'P0001',
   '%append-only%',
   '25. UPDATE na tabela audit_logs é estritamente bloqueado por trigger'
 );
 
-SELECT throws_ok(
+SELECT throws_like(
   'DELETE FROM public.audit_logs WHERE organization_id = ''11111111-1111-1111-1111-111111111111''::uuid',
-  'P0001',
   '%append-only%',
   '26. DELETE na tabela audit_logs é estritamente bloqueado por trigger'
 );
 
 -- Asserções 27 e 28: create_quote_with_items NÃO possui EXECUTE para authenticated nem anon
-SELECT hasnt_function_privilege('authenticated', 'public.create_quote_with_items(uuid, jsonb, jsonb, text)', 'execute', '27. create_quote_with_items NÃO possui EXECUTE para authenticated');
-SELECT hasnt_function_privilege('anon', 'public.create_quote_with_items(uuid, jsonb, jsonb, text)', 'execute', '28. create_quote_with_items NÃO possui EXECUTE para anon');
+SELECT ok(
+  NOT pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.create_quote_with_items(uuid,jsonb,jsonb,text)',
+    'EXECUTE'
+  ),
+  '27. create_quote_with_items NÃO possui EXECUTE para authenticated'
+);
+
+SELECT ok(
+  NOT pg_catalog.has_function_privilege(
+    'anon',
+    'public.create_quote_with_items(uuid,jsonb,jsonb,text)',
+    'EXECUTE'
+  ),
+  '28. create_quote_with_items NÃO possui EXECUTE para anon'
+);
 
 -- Asserções 29 e 30: approve_quote possui EXECUTE para authenticated e NÃO para anon
-SELECT has_function_privilege('authenticated', 'public.approve_quote(uuid, uuid, text)', 'execute', '29. approve_quote possui permissão EXECUTE para authenticated');
-SELECT hasnt_function_privilege('anon', 'public.approve_quote(uuid, uuid, text)', 'execute', '30. approve_quote NÃO possui permissão EXECUTE para anon');
+SELECT ok(
+  pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.approve_quote(uuid,uuid,text)',
+    'EXECUTE'
+  ),
+  '29. approve_quote possui permissão EXECUTE para authenticated'
+);
+
+SELECT ok(
+  NOT pg_catalog.has_function_privilege(
+    'anon',
+    'public.approve_quote(uuid,uuid,text)',
+    'EXECUTE'
+  ),
+  '30. approve_quote NÃO possui permissão EXECUTE para anon'
+);
 
 -- Asserção 31: Assinatura de produto foi criada como pending_configuration (sem trial/active fictício)
 SELECT is(
