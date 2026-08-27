@@ -5,6 +5,7 @@ import { runPricingEngineTestsAsync } from './pricing-engine.test';
 import { runEnvironmentHonestyTests } from './environment-honesty.test';
 import { runFinishingsEngineTests } from './finishings-engine.test';
 import { runFinishingsCompatibilityTests } from './finishings-compatibility.test';
+import { runPdfExportTests } from './pdf-export.test';
 
 async function main() {
   console.log('====================================');
@@ -18,8 +19,9 @@ async function main() {
   const honesty = runEnvironmentHonestyTests();
   const finishings = runFinishingsEngineTests();
   const compatibility = runFinishingsCompatibilityTests();
+  const pdfExport = runPdfExportTests();
 
-  const results = [...domain.results, ...prexyon, ...customer, ...pricing, ...honesty, ...finishings, ...compatibility];
+  const results = [...domain.results, ...prexyon, ...customer, ...pricing, ...honesty, ...finishings, ...compatibility, ...pdfExport];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;
   const failed = total - passed;

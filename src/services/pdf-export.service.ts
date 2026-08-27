@@ -72,7 +72,8 @@ export class PdfExportService {
    * Constrói a estrutura visual completa do documento PDF (A4)
    */
   private static buildQuotePdfDocument(quote: Quote, company: Company): jsPDF {
-    const doc = new jsPDF({
+    const JsPdfClass = (jsPDF as any).jsPDF || jsPDF;
+    const doc = new JsPdfClass({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
@@ -121,7 +122,7 @@ export class PdfExportService {
     doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
     doc.text(`${company.corporateName || company.tradeName} • CNPJ: ${company.document || 'Não informado'}`, margin, currentY);
 
-    // Data de emissão e Validade à direita
+    // Data de emissão à direita
     const creationDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
     doc.text(`Data de Emissão: ${creationDate}`, pageWidth - margin, currentY, { align: 'right' });
 
@@ -133,10 +134,6 @@ export class PdfExportService {
       ? `${addr.street}, ${addr.number}${addr.complement ? ' - ' + addr.complement : ''}, ${addr.neighborhood} - ${addr.city}/${addr.state} • CEP: ${addr.zipCode}`
       : 'Endereço Comercial da Gráfica';
     doc.text(addressStr, margin, currentY);
-
-    const validDays = 15;
-    const validUntil = new Date(Date.now() + validDays * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR');
-    doc.text(`Validade da Proposta: ${validDays} dias (${validUntil})`, pageWidth - margin, currentY, { align: 'right' });
 
     currentY += 4.5;
 
@@ -171,15 +168,31 @@ export class PdfExportService {
     doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
     doc.text(`Cliente: ${quote.customerName || 'Cliente Balcão'}`, margin + 4, currentY + 11.5);
 
-    // Atendente / Vendedor à direita
+    // Atendente / Vendedor à direita (alinhado com segurança dentro da margem útil da página)
+    const rawSellerName = (quote.sellerName || quote.salespersonName || '').trim();
+    const sellerText = rawSellerName.length > 0 ? rawSellerName : 'Atendimento Comercial';
+    const sellerLabel = 'Vendedor / Atendente: ';
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+
+    let displaySeller = sellerText;
+    while (doc.getTextWidth(displaySeller) > 55 && displaySeller.length > 3) {
+      displaySeller = displaySeller.slice(0, -1);
+    }
+    if (displaySeller !== sellerText) {
+      displaySeller += '...';
+    }
+
+    const sellerRightX = pageWidth - margin - 4;
+    doc.text(displaySeller, sellerRightX, currentY + 11.5, { align: 'right' });
+
+    const valWidth = doc.getTextWidth(displaySeller);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
-    doc.text(`Vendedor / Atendente: `, pageWidth - margin - 60, currentY + 11.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
-    const sellerText = quote.sellerName || quote.salespersonName || 'Atendimento Comercial';
-    doc.text(sellerText, pageWidth - margin - 22, currentY + 11.5);
+    doc.text(sellerLabel, sellerRightX - valWidth - 1, currentY + 11.5, { align: 'right' });
 
     // Linha 2 do cliente (Documento e Contato)
     doc.setFont('helvetica', 'normal');
@@ -249,9 +262,10 @@ export class PdfExportService {
       ];
     });
 
-    autoTable(doc, {
+    const applyAutoTable = (autoTable as any).default || autoTable;
+    applyAutoTable(doc, {
       startY: currentY,
-      head: [['#', 'DESCRIÇÃO DO PRODUTO & ESPECIFICAÇÕES TÉCNICAS', 'QTD / COBRANÇA', 'PREÇO BASE', 'TOTAL ITEM']],
+      head: [['#', 'DESCRIÇÃO DO PRODUTO & ESPECIFICAÇÕES TÉCNICAS', 'QTD. / UN.', 'PREÇO BASE', 'TOTAL ITEM']],
       body: tableBody,
       margin: { left: margin, right: margin },
       theme: 'grid',
@@ -264,16 +278,16 @@ export class PdfExportService {
         cellPadding: 3.5,
       },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
+        0: { cellWidth: 9, halign: 'center' },
         1: { cellWidth: 'auto', halign: 'left' },
-        2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 28, halign: 'right' },
-        4: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+        2: { cellWidth: 24, halign: 'center' },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 25, halign: 'right', fontStyle: 'bold' },
       },
       styles: {
         fontSize: 8,
         textColor: [15, 23, 42],
-        cellPadding: 3,
+        cellPadding: 2.5,
         overflow: 'linebreak',
         lineColor: [226, 232, 240],
         lineWidth: 0.2,
@@ -290,8 +304,12 @@ export class PdfExportService {
     const finalTableY = (doc as any).lastAutoTable?.finalY || (currentY + 40);
     currentY = finalTableY + 6;
 
-    // Se estiver muito próximo do rodapé da página (A4 tem 297mm), cria nova página
-    if (currentY > 215) {
+    // Altura necessária para o bloco financeiro (42mm) e limite seguro antes do rodapé (274mm)
+    const financialBoxHeight = 42;
+    const safePageBottom = 274;
+
+    // Se o bloco financeiro não couber integralmente na página atual, cria nova página
+    if (currentY + financialBoxHeight > safePageBottom) {
       doc.addPage();
       currentY = margin + 5;
     }
@@ -304,7 +322,7 @@ export class PdfExportService {
     // Coluna Esquerda: Condições de Pagamento & Prazos
     doc.setFillColor(slateLight[0], slateLight[1], slateLight[2]);
     doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-    doc.roundedRect(margin, currentY, boxWidth, 42, 2, 2, 'FD');
+    doc.roundedRect(margin, currentY, boxWidth, financialBoxHeight, 2, 2, 'FD');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
@@ -333,7 +351,7 @@ export class PdfExportService {
     // Coluna Direita: Totais Financeiros Oficiais (Subtotal, Desconto, Total Final)
     const rightBoxX = margin + boxWidth + 6;
     doc.setFillColor(slateLight[0], slateLight[1], slateLight[2]);
-    doc.roundedRect(rightBoxX, currentY, boxWidth, 42, 2, 2, 'FD');
+    doc.roundedRect(rightBoxX, currentY, boxWidth, financialBoxHeight, 2, 2, 'FD');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
@@ -386,12 +404,16 @@ export class PdfExportService {
     // ============================================================
     // 5. OBSERVAÇÕES COMERCIAIS & NOTA DE APROVAÇÃO
     // ============================================================
-    if (currentY > 245) {
+    const notes = quote.paymentTerms || company.customization?.commercialNotes || 'Trabalhos impressos com alta precisão e calibração de cor.';
+    const splitNotes = doc.splitTextToSize(notes, contentWidth);
+    const notesBlockHeight = 4 + splitNotes.length * 3.8 + 4;
+
+    // Cria nova página apenas se o bloco completo de observações não couber antes do rodapé
+    if (currentY + notesBlockHeight > safePageBottom) {
       doc.addPage();
       currentY = margin + 5;
     }
 
-    const notes = quote.paymentTerms || company.customization?.commercialNotes || 'Trabalhos impressos com alta precisão e calibração de cor.';
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
@@ -401,7 +423,6 @@ export class PdfExportService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
-    const splitNotes = doc.splitTextToSize(notes, contentWidth);
     doc.text(splitNotes, margin, currentY);
     currentY += splitNotes.length * 3.8 + 4;
 
