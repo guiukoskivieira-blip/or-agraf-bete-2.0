@@ -83,8 +83,8 @@ VALUES ('11111111-1111-1111-1111-111111111111'::uuid, 'd0000000-0000-0000-0000-0
 INSERT INTO public.customers (id, organization_id, name, document, type)
 VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'Cliente Alpha Teste', '11.222.333/0001-44', 'company');
 
-INSERT INTO public.products (id, organization_id, name, category, pricing_mode, base_price_cents)
-VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'Cartão de Visita Teste', 'OFF_SET', 'LOT', 7000);
+INSERT INTO public.products (id, organization_id, name, category, pricing_mode, lot_size, sale_price_cents)
+VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'Cartão de Visita Teste', 'prints', 'LOT', 1000, 7000);
 
 INSERT INTO public.quotes (
   id, organization_id, quote_number, current_version, status, customer_name, subtotal_cents,
