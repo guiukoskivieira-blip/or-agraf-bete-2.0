@@ -45,11 +45,33 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
   const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal de Envio por WhatsApp
+  // WhatsApp Dialog Modal State
   const [quoteForWhatsApp, setQuoteForWhatsApp] = useState<Quote | null>(null);
   const [wpRecipientPhone, setWpRecipientPhone] = useState('');
   const [wpCustomMessage, setWpCustomMessage] = useState('');
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+
+  // Trigger Ref para retorno de foco
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  const handleCloseWhatsAppModal = () => {
+    setQuoteForWhatsApp(null);
+    triggerRef.current?.focus();
+  };
+
+  React.useEffect(() => {
+    if (!quoteForWhatsApp) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        handleCloseWhatsAppModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [quoteForWhatsApp]);
 
   // Contadores dinâmicos
   const counts = {
@@ -100,6 +122,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
       );
       return;
     }
+    triggerRef.current = e.currentTarget as HTMLElement;
     const rawPhone = quote.customerContact || '';
     setQuoteForWhatsApp(quote);
     setWpRecipientPhone(rawPhone);
@@ -115,7 +138,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
       const result = sendQuoteViaWhatsApp(quoteForWhatsApp.id, wpCustomMessage, wpRecipientPhone);
       if (result.success && result.messageUrl) {
         window.open(result.messageUrl, '_blank', 'noopener,noreferrer');
-        setQuoteForWhatsApp(null);
+        handleCloseWhatsAppModal();
       }
     } finally {
       setIsSendingWhatsApp(false);
@@ -318,7 +341,14 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
 
       {/* Modal de Disparo por WhatsApp */}
       {quoteForWhatsApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseWhatsAppModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden text-slate-900">
             <div className="p-4 sm:p-5 border-b border-slate-200 bg-teal-50/50 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -331,8 +361,10 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                 </div>
               </div>
               <button
-                onClick={() => setQuoteForWhatsApp(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                type="button"
+                onClick={handleCloseWhatsAppModal}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -376,7 +408,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
             </div>
 
             <div className="p-4 border-t border-slate-200 bg-slate-50/60 flex items-center justify-end gap-2">
-              <Button variant="ghost" onClick={() => setQuoteForWhatsApp(null)}>
+              <Button variant="ghost" onClick={handleCloseWhatsAppModal}>
                 Cancelar
               </Button>
               <Button

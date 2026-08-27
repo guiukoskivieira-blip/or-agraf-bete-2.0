@@ -71,8 +71,27 @@ export const CustomersPage: React.FC = () => {
   });
 
   const [formErrors, setFormErrors] = useState<{ name?: string; email?: string; document?: string }>({});
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  React.useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        handleCloseModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
 
   const handleOpenCreateModal = () => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingCustomer(null);
     setFormData({
       type: 'company',
@@ -94,6 +113,7 @@ export const CustomersPage: React.FC = () => {
   };
 
   const handleOpenEditModal = (customer: Customer) => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingCustomer(customer);
     setFormData({
       type: customer.type || 'company',
@@ -423,7 +443,14 @@ export const CustomersPage: React.FC = () => {
 
       {/* Modal de Criação / Edição de Cliente */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
@@ -443,8 +470,9 @@ export const CustomersPage: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={handleCloseModal}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -584,7 +612,7 @@ export const CustomersPage: React.FC = () => {
 
               {/* Modal Footer */}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 shrink-0">
-                <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                <Button type="button" variant="secondary" onClick={handleCloseModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary" icon={<Save className="w-4 h-4" />}>

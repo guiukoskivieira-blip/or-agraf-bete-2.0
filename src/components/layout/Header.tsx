@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User profile avatar / pill (Mobile and extra header shortcut) */}
         <button
           onClick={onOpenProfile}
-          className="flex items-center gap-2.5 p-1 sm:pl-2 sm:pr-3 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all cursor-pointer text-left"
+          className="hidden sm:flex items-center gap-2.5 p-1 sm:pl-2 sm:pr-3 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all cursor-pointer text-left"
           title="Ver perfil do usuário e dados da gráfica"
           aria-label="Perfil do usuário"
         >

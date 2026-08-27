@@ -77,6 +77,40 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
     return quotes.find(q => q.id === quoteId && q.tenantId === currentCompany.id);
   }, [quotes, quoteId, currentCompany.id]);
 
+  // Trigger Ref para retorno de foco
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  const handleCloseConfirmApproveModal = () => {
+    if (isApproving) return;
+    setIsConfirmApproveModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleCloseWpModal = () => {
+    setIsWpModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  // Listener de tecla Escape
+  React.useEffect(() => {
+    const isAnyModalOpen = isConfirmApproveModalOpen || isWpModalOpen;
+    if (!isAnyModalOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (isConfirmApproveModalOpen && !isApproving) {
+          handleCloseConfirmApproveModal();
+        } else if (isWpModalOpen) {
+          handleCloseWpModal();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isConfirmApproveModalOpen, isWpModalOpen, isApproving]);
+
   if (!quote) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto py-12">
@@ -110,6 +144,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
       );
       return;
     }
+    triggerRef.current = document.activeElement as HTMLElement;
     setWpRecipientPhone(quote.customerContact || '');
     const defaultMsg = `Olá, ${quote.customerName}! Segue a proposta comercial ${quote.quoteNumber} elaborada pela ${currentCompany.tradeName}.`;
     setWpCustomMessage(defaultMsg);
@@ -122,11 +157,16 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
       const result = sendQuoteViaWhatsApp(quote.id, wpCustomMessage, wpRecipientPhone);
       if (result.success && result.messageUrl) {
         window.open(result.messageUrl, '_blank', 'noopener,noreferrer');
-        setIsWpModalOpen(false);
+        handleCloseWpModal();
       }
     } finally {
       setIsSendingWp(false);
     }
+  };
+
+  const handleOpenApproveModal = () => {
+    triggerRef.current = document.activeElement as HTMLElement;
+    setIsConfirmApproveModalOpen(true);
   };
 
   const handleConfirmApprove = () => {
@@ -135,6 +175,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
     try {
       approveQuote(quote.id);
       setIsConfirmApproveModalOpen(false);
+      triggerRef.current?.focus();
     } finally {
       setIsApproving(false);
     }
@@ -155,7 +196,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono font-black text-2xl text-slate-900">{quote.quoteNumber}</span>
+              <h1 className="font-mono font-black text-2xl text-slate-900">{quote.quoteNumber}</h1>
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border ${
                   quote.status === 'approved'
@@ -183,7 +224,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
           {quote.status === 'awaiting_customer' && canApprove && (
             <button
               type="button"
-              onClick={() => setIsConfirmApproveModalOpen(true)}
+              onClick={handleOpenApproveModal}
               disabled={isApproving}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-blue-700 active:scale-98"
             >
@@ -481,7 +522,14 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
 
       {/* Modal de Confirmação de Aprovação */}
       {isConfirmApproveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isApproving) handleCloseConfirmApproveModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 bg-blue-50/70 flex items-center justify-between">
               <div className="flex items-center gap-2 text-blue-900 font-bold text-sm">
@@ -490,9 +538,10 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
               </div>
               <button
                 type="button"
-                onClick={() => !isApproving && setIsConfirmApproveModalOpen(false)}
+                onClick={handleCloseConfirmApproveModal}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
                 disabled={isApproving}
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -524,7 +573,7 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
               <Button
                 variant="ghost"
-                onClick={() => setIsConfirmApproveModalOpen(false)}
+                onClick={handleCloseConfirmApproveModal}
                 disabled={isApproving}
               >
                 Cancelar
@@ -544,7 +593,14 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
 
       {/* Modal de Disparo por WhatsApp */}
       {isWpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseWpModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 bg-teal-50 flex items-center justify-between">
               <div className="flex items-center gap-2 text-teal-900 font-bold text-sm">
@@ -552,8 +608,9 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
                 <span>Enviar Orçamento via WhatsApp</span>
               </div>
               <button
-                onClick={() => setIsWpModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+                onClick={handleCloseWpModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>

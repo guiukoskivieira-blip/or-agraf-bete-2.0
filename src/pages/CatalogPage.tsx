@@ -221,9 +221,47 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   }, [finishings, searchTerm, statusFilter]);
 
   // ==========================================
+  // MODAL HANDLERS COM FOCO E TECLA ESCAPE
+  // ==========================================
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  const handleCloseProductModal = () => {
+    setIsProductModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleCloseMaterialModal = () => {
+    setIsMaterialModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleCloseFinishingModal = () => {
+    setIsFinishingModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  React.useEffect(() => {
+    const isAnyOpen = isProductModalOpen || isMaterialModalOpen || isFinishingModalOpen;
+    if (!isAnyOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (isFinishingModalOpen) handleCloseFinishingModal();
+        else if (isMaterialModalOpen) handleCloseMaterialModal();
+        else if (isProductModalOpen) handleCloseProductModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isProductModalOpen, isMaterialModalOpen, isFinishingModalOpen]);
+
+  // ==========================================
   // PRODUTOS HANDLERS
   // ==========================================
   const handleOpenCreateProduct = () => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingProduct(null);
     setProductForm({
       name: '',
@@ -242,6 +280,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleOpenEditProduct = (p: Product) => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingProduct(p);
     const mode = p.pricingMode || inferPricingMode(p);
     setProductForm({
@@ -322,7 +361,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       createProduct(payload);
     }
 
-    setIsProductModalOpen(false);
+    handleCloseProductModal();
   };
 
   const handleDeleteProduct = (p: Product) => {
@@ -344,6 +383,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   // INSUMOS (MATERIAIS) HANDLERS
   // ==========================================
   const handleOpenCreateMaterial = () => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingMaterial(null);
     setMaterialForm({
       name: '',
@@ -357,6 +397,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleOpenEditMaterial = (m: Material) => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingMaterial(m);
     setMaterialForm({
       name: m.name,
@@ -399,13 +440,14 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       });
     }
 
-    setIsMaterialModalOpen(false);
+    handleCloseMaterialModal();
   };
 
   // ==========================================
   // ACABAMENTOS HANDLERS
   // ==========================================
   const handleOpenCreateFinishing = () => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingFinishing(null);
     setProductSearchInModal('');
     setFinishingForm({
@@ -424,6 +466,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleOpenEditFinishing = (f: Finishing) => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setEditingFinishing(f);
     setProductSearchInModal('');
     const pType: 'charged' | 'free' | 'not_configured' =
@@ -519,7 +562,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       });
     }
 
-    setIsFinishingModalOpen(false);
+    handleCloseFinishingModal();
   };
 
   return (
@@ -1011,13 +1054,25 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       {/* MODAL: PRODUTO */}
       {/* ============================================================ */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseProductModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-bold text-sm text-slate-900">
                 {editingProduct ? 'Editar Produto do Catálogo' : 'Cadastrar Novo Produto'}
               </h3>
-              <button onClick={() => setIsProductModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+              <button
+                type="button"
+                onClick={handleCloseProductModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Fechar"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1223,7 +1278,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <Button type="button" variant="secondary" onClick={() => setIsProductModalOpen(false)}>
+                <Button type="button" variant="secondary" onClick={handleCloseProductModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary">
@@ -1239,13 +1294,25 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       {/* MODAL: INSUMO */}
       {/* ============================================================ */}
       {isMaterialModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseMaterialModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-bold text-sm text-slate-900">
                 {editingMaterial ? 'Editar Insumo' : 'Novo Insumo / Substrato'}
               </h3>
-              <button onClick={() => setIsMaterialModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+              <button
+                type="button"
+                onClick={handleCloseMaterialModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Fechar"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1300,7 +1367,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <Button type="button" variant="secondary" onClick={() => setIsMaterialModalOpen(false)}>
+                <Button type="button" variant="secondary" onClick={handleCloseMaterialModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary">
@@ -1316,13 +1383,25 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       {/* MODAL: ACABAMENTO */}
       {/* ============================================================ */}
       {isFinishingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/40 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseFinishingModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-bold text-sm text-slate-900">
                 {editingFinishing ? 'Editar Acabamento Técnico' : 'Novo Acabamento Técnico'}
               </h3>
-              <button onClick={() => setIsFinishingModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+              <button
+                type="button"
+                onClick={handleCloseFinishingModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Fechar"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1340,39 +1419,41 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 label="Descrição Técnica / Instruções (Opcional)"
                 value={finishingForm.description}
                 onChange={e => setFinishingForm({ ...finishingForm, description: e.target.value })}
-                placeholder="Ex: Película protetora fosca BOPP aplicada a quente..."
+                placeholder="Detalhes sobre o processo gráfico..."
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Base de Cobrança *
+                    Base de Cobrança
                   </label>
                   <select
                     value={finishingForm.pricingBasis}
-                    onChange={e => setFinishingForm({ ...finishingForm, pricingBasis: e.target.value as any })}
+                    onChange={e =>
+                      setFinishingForm({ ...finishingForm, pricingBasis: e.target.value as any })
+                    }
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="PER_UNIT">Por Unidade (Peça)</option>
-                    <option value="PER_LOT">Por Lote / Tiragem</option>
+                    <option value="PER_UNIT">Por Unidade Produzida</option>
+                    <option value="FIXED">Valor Fixo por Item</option>
+                    <option value="PER_LOT">Por Lote Fechado</option>
                     <option value="PER_SQUARE_METER">Por Metro Quadrado (m²)</option>
                     <option value="PER_LINEAR_METER">Por Metro Linear</option>
-                    <option value="FIXED">Valor Fixo por Item</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Definição de Preço *
+                    Tipo de Preço
                   </label>
                   <select
                     value={finishingForm.priceType}
                     onChange={e => setFinishingForm({ ...finishingForm, priceType: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="charged">Cobrado no Orçamento</option>
-                    <option value="free">Gratuito / Incluso sem Custo</option>
-                    <option value="not_configured">Preço Não Configurado</option>
+                    <option value="charged">Cobrado (Com Valor)</option>
+                    <option value="free">Incluso sem Custo Adicional</option>
+                    <option value="not_configured">Preço não configurado</option>
                   </select>
                 </div>
               </div>
@@ -1380,26 +1461,26 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               {finishingForm.priceType === 'charged' && (
                 <div>
                   <Input
-                    label="Valor de Venda (R$) *"
+                    label="Preço Comercial (R$)"
                     value={finishingForm.priceStr}
                     onChange={e => setFinishingForm({ ...finishingForm, priceStr: e.target.value })}
                     placeholder="0,00"
-                    helperText={
+                    helperText={`Cobrado ${
                       finishingForm.pricingBasis === 'FIXED'
-                        ? 'Valor cobrado 1x por item no orçamento.'
+                        ? 'como valor fixo no item'
                         : finishingForm.pricingBasis === 'PER_LOT'
-                        ? 'Valor cobrado por lote faturado do produto.'
+                        ? 'por lote de produto'
                         : finishingForm.pricingBasis === 'PER_SQUARE_METER'
-                        ? 'Valor multiplicado pela área total em m².'
+                        ? 'por m²'
                         : finishingForm.pricingBasis === 'PER_LINEAR_METER'
-                        ? 'Valor multiplicado pelo comprimento total em metros lineares.'
-                        : 'Valor multiplicado pela quantidade de unidades/peças.'
-                    }
+                        ? 'por metro linear'
+                        : 'por unidade'
+                    }`}
                   />
                 </div>
               )}
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="space-y-2 pt-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1440,40 +1521,21 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       }
                       className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
                     />
-                    <span className="font-semibold text-slate-700">Aplicar a todos (Global)</span>
+                    <span className="font-medium text-slate-700">Compatível com todos os produtos</span>
                   </label>
                 </div>
 
                 {!finishingForm.appliesToAllProducts ? (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          value={productSearchInModal}
-                          onChange={e => setProductSearchInModal(e.target.value)}
-                          placeholder="Pesquisar por nome ou SKU..."
-                          className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white text-slate-900 focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allActiveIds = products.filter(p => p.isActive !== false).map(p => p.id);
-                          setFinishingForm({ ...finishingForm, compatibleProductIds: allActiveIds });
-                        }}
-                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap"
-                      >
-                        Todos
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFinishingForm({ ...finishingForm, compatibleProductIds: [] })}
-                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 whitespace-nowrap"
-                      >
-                        Limpar
-                      </button>
+                  <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={productSearchInModal}
+                        onChange={e => setProductSearchInModal(e.target.value)}
+                        placeholder="Filtrar produtos compatíveis..."
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                     </div>
 
                     <div className="text-[11px] font-medium text-slate-600 flex justify-between">
@@ -1550,7 +1612,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <Button type="button" variant="secondary" onClick={() => setIsFinishingModalOpen(false)}>
+                <Button type="button" variant="secondary" onClick={handleCloseFinishingModal}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary">

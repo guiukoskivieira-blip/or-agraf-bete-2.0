@@ -19,9 +19,9 @@ export const Button: React.FC<ButtonProps> = ({
     'inline-flex items-center justify-center font-medium transition-all rounded-xl cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 outline-none select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none';
 
   const sizeClasses = {
-    sm: 'text-xs px-3 py-1.5 gap-1.5',
-    md: 'text-sm px-4 py-2 gap-2',
-    lg: 'text-base px-5 py-2.5 gap-2.5',
+    sm: 'text-xs px-3 py-1.5 gap-1.5 min-h-[36px] min-w-[36px]',
+    md: 'text-sm px-4 py-2 gap-2 min-h-[40px]',
+    lg: 'text-base px-5 py-2.5 gap-2.5 min-h-[44px]',
   };
 
   const variantClasses = {

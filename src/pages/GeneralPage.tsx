@@ -36,6 +36,29 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
   const [quoteToApprove, setQuoteToApprove] = useState<Quote | null>(null);
   const [isApproving, setIsApproving] = useState(false);
 
+  // Trigger Ref para retorno de foco
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  const handleCloseApproveModal = () => {
+    if (isApproving) return;
+    setQuoteToApprove(null);
+    triggerRef.current?.focus();
+  };
+
+  React.useEffect(() => {
+    if (!quoteToApprove) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isApproving) {
+        e.stopPropagation();
+        handleCloseApproveModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [quoteToApprove, isApproving]);
+
   // Permissão de aprovação
   const canApprove = useMemo(() => {
     if (currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'manager') {
@@ -60,7 +83,7 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
     setIsApproving(true);
     try {
       approveQuote(quoteToApprove.id);
-      setQuoteToApprove(null);
+      handleCloseApproveModal();
     } finally {
       setIsApproving(false);
     }
@@ -192,6 +215,7 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
                         type="button"
                         onClick={e => {
                           e.stopPropagation();
+                          triggerRef.current = e.currentTarget;
                           setQuoteToApprove(quote);
                         }}
                         className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow transition-all cursor-pointer shrink-0 border border-blue-700 active:scale-95"
@@ -214,7 +238,14 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
 
       {/* Modal de Confirmação de Aprovação */}
       {quoteToApprove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isApproving) handleCloseApproveModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 bg-blue-50/70 flex items-center justify-between">
               <div className="flex items-center gap-2 text-blue-900 font-bold text-sm">
@@ -223,9 +254,10 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
               </div>
               <button
                 type="button"
-                onClick={() => !isApproving && setQuoteToApprove(null)}
+                onClick={handleCloseApproveModal}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
                 disabled={isApproving}
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -257,7 +289,7 @@ export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
               <Button
                 variant="ghost"
-                onClick={() => setQuoteToApprove(null)}
+                onClick={handleCloseApproveModal}
                 disabled={isApproving}
               >
                 Cancelar

@@ -233,6 +233,36 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [isRemoveDiscountModalOpen, setIsRemoveDiscountModalOpen] = useState(false);
 
+  // Trigger Ref para retorno de foco em modais
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  const handleCloseCatalogPicker = () => {
+    setIsCatalogPickerOpen(false);
+    setPickerTargetItemId(null);
+    triggerRef.current?.focus();
+  };
+
+  const handleCloseRemoveDiscountModal = () => {
+    setIsRemoveDiscountModalOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  React.useEffect(() => {
+    const isAnyOpen = isCatalogPickerOpen || isRemoveDiscountModalOpen;
+    if (!isAnyOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (isRemoveDiscountModalOpen) handleCloseRemoveDiscountModal();
+        else if (isCatalogPickerOpen) handleCloseCatalogPicker();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCatalogPickerOpen, isRemoveDiscountModalOpen]);
+
   // ==========================================
   // 4. CONDIÇÕES FINANCEIRAS
   // ==========================================
@@ -453,6 +483,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
   // Adicionar item a partir do catálogo (abre picker)
   const handleOpenCatalogPicker = (targetItemId?: string) => {
+    triggerRef.current = document.activeElement as HTMLElement;
     setPickerTargetItemId(targetItemId || null);
     setCatalogSearch('');
     setCatalogCategoryFilter('all');
@@ -793,7 +824,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
     setDiscountValueInput('');
     setDiscountReasonInput('');
     setIsEditingDiscount(true);
-    setIsRemoveDiscountModalOpen(false);
+    handleCloseRemoveDiscountModal();
     setDiscountError(null);
     showNotice('Desconto Removido', 'O desconto comercial foi removido e o total original restaurado.', 'info');
   };
@@ -1677,7 +1708,10 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     size="sm"
                     className="text-rose-600 hover:bg-rose-50"
                     icon={<Trash2 className="w-3.5 h-3.5" />}
-                    onClick={() => setIsRemoveDiscountModalOpen(true)}
+                    onClick={(e) => {
+                      triggerRef.current = e.currentTarget;
+                      setIsRemoveDiscountModalOpen(true);
+                    }}
                   >
                     Remover
                   </Button>
@@ -2122,14 +2156,22 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
       {/* Modal de Confirmação de Remoção de Desconto */}
       {isRemoveDiscountModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseRemoveDiscountModal();
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-slate-900">
             <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <span className="font-bold text-sm text-slate-900">Remover Desconto</span>
               <button
                 type="button"
-                onClick={() => setIsRemoveDiscountModalOpen(false)}
+                onClick={handleCloseRemoveDiscountModal}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2142,7 +2184,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
             </div>
 
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
-              <Button variant="ghost" onClick={() => setIsRemoveDiscountModalOpen(false)}>
+              <Button variant="ghost" onClick={handleCloseRemoveDiscountModal}>
                 Cancelar
               </Button>
               <Button
@@ -2158,7 +2200,14 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
       {/* MODAL / SELETOR DE PRODUTOS DO CATÁLOGO OFICIAL */}
       {isCatalogPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseCatalogPicker();
+          }}
+        >
           <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900">
@@ -2169,8 +2218,9 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
               </div>
               <button
                 type="button"
-                onClick={() => setIsCatalogPickerOpen(false)}
+                onClick={handleCloseCatalogPicker}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                aria-label="Fechar"
               >
                 ✕
               </button>
