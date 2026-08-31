@@ -24,7 +24,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             ref={ref}
             disabled={disabled}
-            className={`w-full bg-white border rounded-xl py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-600 outline-none transition-all shadow-xs ${
+            className={`w-full bg-white border rounded-xl py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-600 outline-none transition-all shadow-xs ${
               disabled ? 'bg-slate-50 text-slate-500 cursor-not-allowed border-slate-200' : 'border-slate-200 hover:border-slate-300'
             } ${icon ? 'pl-10 pr-3.5' : 'px-3.5'} ${
               error ? 'border-rose-500 ring-rose-500/20' : ''

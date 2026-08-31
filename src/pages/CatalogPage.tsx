@@ -614,7 +614,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           onClick={() => handleSelectTab('products')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'products'
-              ? 'bg-blue-600 text-white shadow-xs'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -627,7 +627,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           onClick={() => handleSelectTab('supplies')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'supplies'
-              ? 'bg-blue-600 text-white shadow-xs'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -640,7 +640,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           onClick={() => handleSelectTab('finishes')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'finishes'
-              ? 'bg-blue-600 text-white shadow-xs'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
@@ -660,7 +660,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             placeholder={`Buscar em ${
               activeTab === 'products' ? 'produtos' : activeTab === 'supplies' ? 'insumos' : 'acabamentos'
             }...`}
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
           />
         </div>
 
@@ -668,7 +668,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-700 focus:ring-2 focus:ring-emerald-500"
           >
             <option value="all">Todas as Categorias</option>
             {PRODUCT_CATEGORIES.map(c => (
@@ -682,7 +682,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as any)}
-          className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500"
+          className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-700 focus:ring-2 focus:ring-emerald-500"
         >
           <option value="all">Todos os Status</option>
           <option value="active">Apenas Ativos</option>
@@ -755,7 +755,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                                 lf.isRequired
                                   ? 'bg-rose-50 text-rose-700 border-rose-200'
                                   : lf.isDefaultSelected
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                   : 'bg-slate-100 text-slate-600 border-slate-200'
                               }`}
                             >
@@ -785,7 +785,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                           variant="ghost"
                           size="sm"
                           title="Editar Produto"
-                          icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                          icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
                           onClick={() => handleOpenEditProduct(product)}
                         />
                         <Button
@@ -863,7 +863,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                          icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
                           onClick={() => handleOpenEditMaterial(mat)}
                         />
                         <Button
@@ -953,7 +953,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1">
                           {fin.isRequired ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                               Obrigatório
                             </span>
                           ) : (
@@ -962,7 +962,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                             </span>
                           )}
                           {fin.isDefaultSelected && !fin.isRequired && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                               Padrão
                             </span>
                           )}
@@ -988,7 +988,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       </td>
                       <td className="py-3.5 px-4 text-[11px] text-slate-600">
                         {fin.appliesToAllProducts ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Todos os produtos (Global)
                           </span>
                         ) : fin.compatibleProductIds && fin.compatibleProductIds.length > 0 ? (
@@ -1021,7 +1021,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            icon={<Edit className="w-3.5 h-3.5 text-blue-600" />}
+                            icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
                             onClick={() => handleOpenEditFinishing(fin)}
                           />
                           <Button
@@ -1102,7 +1102,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   <select
                     value={productForm.category}
                     onChange={e => setProductForm({ ...productForm, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500"
                   >
                     {PRODUCT_CATEGORIES.map(c => (
                       <option key={c.id} value={c.id}>
@@ -1119,7 +1119,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   <select
                     value={productForm.pricingMode}
                     onChange={e => setProductForm({ ...productForm, pricingMode: e.target.value as PricingMode })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 font-medium"
                   >
                     {PRICING_MODES.map(mode => (
                       <option key={mode.id} value={mode.id}>
@@ -1131,12 +1131,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               </div>
 
               {productForm.pricingMode === 'LOT' && (
-                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
-                    <Info className="w-4 h-4 text-blue-600" />
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                    <Info className="w-4 h-4 text-emerald-600" />
                     <span>Configuração de Lote / Tiragem</span>
                   </div>
-                  <p className="text-[11px] text-blue-700">
+                  <p className="text-[11px] text-emerald-700">
                     O preço cadastrado será o valor cobrado por cada lote fechado de unidades (ex: R$ 70,00 por lote de 1.000 un.).
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -1184,7 +1184,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 <select
                   value={productForm.defaultMaterial}
                   onChange={e => setProductForm({ ...productForm, defaultMaterial: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">Selecione um substrato do catálogo...</option>
                   {materials.map(m => (
@@ -1229,7 +1229,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                                 });
                               }
                             }}
-                            className="w-4 h-4 rounded text-blue-600 border-slate-300"
+                            className="w-4 h-4 rounded text-emerald-600 border-slate-300"
                           />
                           <span className="font-bold text-slate-800">{fin.name}</span>
                         </label>
@@ -1265,7 +1265,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                                     ),
                                   });
                                 }}
-                                className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
+                                className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300"
                               />
                               <span>Auto Marcar</span>
                             </label>
@@ -1340,7 +1340,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   <select
                     value={materialForm.unit}
                     onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="sheet">Folha (sheet)</option>
                     <option value="m2">Metro Quadrado (m²)</option>
@@ -1432,7 +1432,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     onChange={e =>
                       setFinishingForm({ ...finishingForm, pricingBasis: e.target.value as any })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="PER_UNIT">Por Unidade Produzida</option>
                     <option value="FIXED">Valor Fixo por Item</option>
@@ -1449,7 +1449,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   <select
                     value={finishingForm.priceType}
                     onChange={e => setFinishingForm({ ...finishingForm, priceType: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="charged">Cobrado (Com Valor)</option>
                     <option value="free">Incluso sem Custo Adicional</option>
@@ -1486,7 +1486,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     type="checkbox"
                     checked={finishingForm.isRequired}
                     onChange={e => setFinishingForm({ ...finishingForm, isRequired: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-600 border-slate-300"
+                    className="w-4 h-4 rounded text-emerald-600 border-slate-300"
                   />
                   <span className="font-bold text-slate-800">Acabamento Técnico Obrigatório (Padrão)</span>
                 </label>
@@ -1496,7 +1496,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     type="checkbox"
                     checked={finishingForm.isDefaultSelected}
                     onChange={e => setFinishingForm({ ...finishingForm, isDefaultSelected: e.target.checked })}
-                    className="w-4 h-4 rounded text-teal-600 border-slate-300"
+                    className="w-4 h-4 rounded text-emerald-600 border-slate-300"
                   />
                   <span className="font-bold text-slate-800">Selecionar Automaticamente ao Adicionar Produto</span>
                 </label>
@@ -1519,7 +1519,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                           compatibleProductIds: e.target.checked ? [] : finishingForm.compatibleProductIds,
                         })
                       }
-                      className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
+                      className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300"
                     />
                     <span className="font-medium text-slate-700">Compatível com todos os produtos</span>
                   </label>
@@ -1534,7 +1534,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                         value={productSearchInModal}
                         onChange={e => setProductSearchInModal(e.target.value)}
                         placeholder="Filtrar produtos compatíveis..."
-                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
 
@@ -1561,7 +1561,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                               key={prod.id}
                               className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-blue-50/70 border-blue-200 text-blue-900 font-semibold'
+                                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900 font-semibold'
                                   : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100/60'
                               }`}
                             >
@@ -1582,7 +1582,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                                       });
                                     }
                                   }}
-                                  className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300"
+                                  className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300"
                                 />
                                 <div>
                                   <div className="text-xs">{prod.name}</div>
@@ -1604,8 +1604,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 text-blue-900 text-xs flex items-center gap-2">
-                    <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                  <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
+                    <Info className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>Este acabamento estará disponível para todos os produtos do catálogo.</span>
                   </div>
                 )}

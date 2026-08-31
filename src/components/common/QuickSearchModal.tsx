@@ -33,11 +33,11 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   if (!isOpen) return null;
 
   const modules: { id: string; title: string; subtitle: string; icon: React.ReactNode }[] = [
-    { id: 'general', title: 'Página Geral', subtitle: 'Visão inicial e resumo comercial', icon: <LayoutGrid className="w-4 h-4 text-blue-600" /> },
+    { id: 'general', title: 'Página Geral', subtitle: 'Visão inicial e resumo comercial', icon: <LayoutGrid className="w-4 h-4 text-emerald-600" /> },
     { id: 'new-quote', title: 'Novo Orçamento', subtitle: 'Criar e emitir nova proposta comercial', icon: <PlusCircle className="w-4 h-4 text-emerald-600" /> },
-    { id: 'quotes', title: 'Orçamentos', subtitle: 'Propostas comerciais, aprovações e exportação em PDF', icon: <FileText className="w-4 h-4 text-blue-600" /> },
-    { id: 'customers', title: 'Clientes & Contatos', subtitle: 'Cadastro de clientes PJ/PF e contatos comerciais', icon: <Users className="w-4 h-4 text-teal-600" /> },
-    { id: 'catalog', title: 'Catálogo Comercial', subtitle: 'Produtos gráficos, insumos/substratos e acabamentos', icon: <Layers className="w-4 h-4 text-indigo-600" /> },
+    { id: 'quotes', title: 'Orçamentos', subtitle: 'Propostas comerciais, aprovações e exportação em PDF', icon: <FileText className="w-4 h-4 text-emerald-600" /> },
+    { id: 'customers', title: 'Clientes & Contatos', subtitle: 'Cadastro de clientes PJ/PF e contatos comerciais', icon: <Users className="w-4 h-4 text-emerald-600" /> },
+    { id: 'catalog', title: 'Catálogo Comercial', subtitle: 'Produtos gráficos, insumos/substratos e acabamentos', icon: <Layers className="w-4 h-4 text-emerald-600" /> },
     { id: 'profile', title: 'Meu Perfil & Configurações', subtitle: 'Dados da gráfica, usuários, permissões e integrações', icon: <User className="w-4 h-4 text-slate-600" /> },
   ];
 
@@ -91,13 +91,13 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                     {item.icon}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
+                    <div className="text-sm font-semibold text-slate-800 group-hover:text-emerald-600 transition-colors">
                       {item.title}
                     </div>
                     <div className="text-xs text-slate-500">{item.subtitle}</div>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
               </button>
             ))
           )}
@@ -106,7 +106,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
         {/* Footer */}
         <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
           <span>Pressione <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600 font-mono">ESC</kbd> para fechar</span>
-          <span className="text-blue-600 font-semibold">OrçaGraf</span>
+          <span className="text-emerald-600 font-semibold">OrçaGraf</span>
         </div>
       </div>
     </div>

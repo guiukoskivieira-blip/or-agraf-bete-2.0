@@ -26,7 +26,7 @@ export const ALLOWED_QUOTE_STATUSES: QuoteStatus[] = [
 export const QUOTE_STATUS_METADATA: Record<QuoteStatus, QuoteStatusMeta> = {
   awaiting_customer: {
     label: 'Aguardando cliente',
-    badgeClass: 'bg-sky-950/80 text-sky-300 border-sky-800/80',
+    badgeClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80',
     description: 'Proposta comercial enviada e aguardando retorno ou aprovação do cliente.',
   },
   approved: {

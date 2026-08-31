@@ -1,124 +1,37 @@
-/**
- * @file Header.tsx
- * @description Cabeçalho Limpo e Funcional do OrçaGraf (Design System Ecossistema)
- * @project OrçaGraf
- */
-
 import React from 'react';
-import { Menu, PlusCircle, Bell, Search } from 'lucide-react';
+import { Bell, ChevronDown, CircleHelp, Menu, Settings } from 'lucide-react';
+import prexyonLogo from '../../assets/prexyon-logo.png';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
-import { getEnvironmentCapabilities } from '../../domain/environment-capabilities';
-import { Button } from '../ui/Button';
-import { OrcaGrafLogo } from '../common/OrcaGrafLogo';
 
-interface HeaderProps {
-  onOpenMobileMenu: () => void;
-  onSearchClick?: () => void;
-  onNewQuote?: () => void;
-  onOpenProfile?: () => void;
-}
+interface HeaderProps { onOpenMobileMenu: () => void; onSearchClick?: () => void; onNewQuote?: () => void; onOpenProfile?: () => void }
 
-export const Header: React.FC<HeaderProps> = ({
-  onOpenMobileMenu,
-  onSearchClick,
-  onNewQuote,
-  onOpenProfile,
-}) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenProfile }) => {
   const { currentUser } = useTenant();
   const { showNotice } = useNotification();
-  const capabilities = getEnvironmentCapabilities();
-
-  const handleNotificationsClick = () => {
-    showNotice('Avisos Comerciais', 'Nenhum alerta pendente no momento.', 'info');
-  };
+  const initials = currentUser.name.slice(0, 2).toUpperCase();
+  const unavailable = (label: string) => showNotice(label, 'Este recurso ainda não está configurado.', 'info');
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Left side: Mobile Menu trigger + Clean App Title/Logo on Mobile + Demo badge */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onOpenMobileMenu}
-          className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none cursor-pointer"
-          aria-label="Abrir menu de navegação"
-        >
-          <Menu className="w-5 h-5" />
+    <header className="flex h-[72px] shrink-0 items-center justify-between bg-[#031225] px-4 text-white shadow-lg shadow-slate-950/10 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+        <button onClick={onOpenMobileMenu} className="rounded-lg p-2 text-white/85 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400 lg:hidden" aria-label="Abrir navegação"><Menu className="h-5 w-5" /></button>
+        <span className="rounded-lg bg-white px-2 py-1"><img src={prexyonLogo} alt="Prexyon" className="h-7 w-[120px] object-contain object-left sm:h-8 sm:w-[138px]" /></span>
+        <div className="hidden h-8 w-px bg-white/25 md:block" />
+        <button type="button" onClick={() => unavailable('Minha empresa')} className="hidden items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400 md:flex">
+          Minha empresa <ChevronDown className="h-4 w-4" />
         </button>
-
-        <div className="lg:hidden flex items-center">
-          <OrcaGrafLogo size="sm" showSubtitle={false} />
-        </div>
-
-        {capabilities.isDemoData && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
-            Ambiente de demonstração
-          </span>
-        )}
+        <button type="button" className="hidden items-center gap-3 rounded-xl border border-white/25 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold shadow-inner hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400 sm:flex" aria-label="Produto selecionado: OrçaGraf">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-400/70 bg-emerald-500/15 text-xs font-black text-emerald-400">OG</span>
+          <span>OrçaGraf</span><ChevronDown className="h-4 w-4 text-white/75" />
+        </button>
       </div>
-
-      {/* Right side: Action, Search, Notifications, User */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Quick Search button on mobile/desktop */}
-        <button
-          onClick={onSearchClick}
-          className="px-3 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center gap-2 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none cursor-pointer shadow-xs"
-          title="Pesquisa rápida"
-          aria-label="Pesquisar orçamentos ou clientes"
-        >
-          <Search className="w-4 h-4 text-slate-400" />
-          <span className="hidden md:inline text-slate-500">Buscar no OrçaGraf...</span>
-          <kbd className="hidden md:inline text-[10px] font-mono text-slate-500 bg-slate-200/80 px-1.5 py-0.5 rounded">
-            /
-          </kbd>
-        </button>
-
-        {/* Notifications Icon */}
-        <button
-          onClick={handleNotificationsClick}
-          className="p-2 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors relative focus-visible:ring-2 focus-visible:ring-blue-500 outline-none cursor-pointer shadow-xs"
-          aria-label="Ver avisos"
-        >
-          <Bell className="w-4 h-4" />
-        </button>
-
-        {/* Primary CTA button in Header */}
-        {onNewQuote && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onNewQuote}
-            icon={<PlusCircle className="w-3.5 h-3.5" />}
-            className="hidden sm:inline-flex"
-          >
-            Novo Orçamento
-          </Button>
-        )}
-
-        {/* User profile avatar / pill (Mobile and extra header shortcut) */}
-        <button
-          onClick={onOpenProfile}
-          className="hidden sm:flex items-center gap-2.5 p-1 sm:pl-2 sm:pr-3 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all cursor-pointer text-left"
-          title="Ver perfil do usuário e dados da gráfica"
-          aria-label="Perfil do usuário"
-        >
-          {currentUser.avatarUrl ? (
-            <img
-              src={currentUser.avatarUrl}
-              alt={currentUser.name}
-              className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-xs"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-xs">
-              {currentUser.name.slice(0, 2).toUpperCase()}
-            </div>
-          )}
-          <div className="hidden xl:block">
-            <div className="text-xs font-semibold text-slate-800 leading-tight">{currentUser.name}</div>
-            <div className="text-[10px] text-slate-400 capitalize">
-              {currentUser.role === 'owner' ? 'Proprietário' : currentUser.role === 'admin' ? 'Administrador' : 'Vendedor'}
-            </div>
-          </div>
-        </button>
+      <div className="flex items-center gap-1 sm:gap-2">
+        <button onClick={() => unavailable('Ajuda')} className="hidden rounded-lg px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400 lg:block">Ajuda</button>
+        <button onClick={() => unavailable('Central de ajuda')} className="rounded-full p-2 text-white/90 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400" aria-label="Central de ajuda"><CircleHelp className="h-6 w-6" /></button>
+        <button onClick={() => showNotice('Notificações', 'Nenhuma notificação pendente.', 'info')} className="relative rounded-full p-2 text-white/90 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400" aria-label="Notificações"><Bell className="h-6 w-6" /></button>
+        <button onClick={onOpenProfile} className="hidden rounded-full p-2 text-white/90 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400 sm:block" aria-label="Configurações"><Settings className="h-6 w-6" /></button>
+        <button onClick={onOpenProfile} className="hidden sm:flex items-center gap-2.5 ml-1 h-10 w-10 justify-center rounded-full bg-white font-bold text-slate-900 ring-2 ring-white/10 hover:ring-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400" aria-label="Perfil do usuário" title={`Perfil de ${currentUser.name}`}>{initials}</button>
       </div>
     </header>
   );

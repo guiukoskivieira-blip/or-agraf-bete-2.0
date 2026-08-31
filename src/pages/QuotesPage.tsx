@@ -175,7 +175,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
               onClick={() => setSelectedStatus(filter.id)}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
               }`}
             >
@@ -233,13 +233,13 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                     <tr
                       key={quote.id}
                       onClick={() => handleOpenQuoteDetails(quote.id)}
-                      className="hover:bg-blue-50/30 transition-colors cursor-pointer"
+                      className="hover:bg-emerald-50/30 transition-colors cursor-pointer"
                     >
                       {/* Número e Data */}
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
                         <div className="flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-blue-600" />
-                          <span className="hover:text-blue-600 transition-colors">{quote.quoteNumber}</span>
+                          <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="hover:text-emerald-600 transition-colors">{quote.quoteNumber}</span>
                         </div>
                         <div className="text-[10px] text-slate-400 font-sans font-normal mt-0.5">
                           {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('pt-BR') : '-'}
@@ -270,7 +270,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                       <td className="py-3.5 px-4 font-mono">
                         <div className="text-slate-600">{formatCentsToBRL(quote.subtotalCents)}</div>
                         {discountCents > 0 ? (
-                          <div className="text-[11px] text-teal-600 font-semibold">
+                          <div className="text-[11px] text-emerald-600 font-semibold">
                             - {formatCentsToBRL(discountCents)}
                           </div>
                         ) : (
@@ -291,12 +291,12 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : quote.status === 'rejected'
                               ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-sky-50 text-sky-700 border-sky-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           }`}
                         >
                           {quote.status === 'approved' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
                           {quote.status === 'rejected' && <XCircle className="w-3 h-3 text-rose-600" />}
-                          {quote.status === 'awaiting_customer' && <Clock className="w-3 h-3 text-sky-600" />}
+                          {quote.status === 'awaiting_customer' && <Clock className="w-3 h-3 text-emerald-600" />}
                           <span>{meta.label}</span>
                         </span>
                       </td>
@@ -308,7 +308,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                             variant="ghost"
                             size="sm"
                             title="Baixar PDF do Orçamento"
-                            icon={<Download className="w-3.5 h-3.5 text-blue-600" />}
+                            icon={<Download className="w-3.5 h-3.5 text-emerald-600" />}
                             onClick={() => downloadQuotePdf(quote.id)}
                           />
 
@@ -316,7 +316,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                             variant="ghost"
                             size="sm"
                             title="Enviar pelo WhatsApp"
-                            icon={<MessageSquare className="w-3.5 h-3.5 text-teal-600" />}
+                            icon={<MessageSquare className="w-3.5 h-3.5 text-emerald-600" />}
                             onClick={e => handleOpenWhatsAppModal(e, quote)}
                           />
 
@@ -350,9 +350,9 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
           }}
         >
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden text-slate-900">
-            <div className="p-4 sm:p-5 border-b border-slate-200 bg-teal-50/50 flex items-center justify-between">
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-emerald-50/50 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-teal-600 text-white">
+                <div className="p-2 rounded-xl bg-emerald-600 text-white">
                   <MessageSquare className="w-5 h-5" />
                 </div>
                 <div>
@@ -380,7 +380,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                   value={wpRecipientPhone}
                   onChange={e => setWpRecipientPhone(e.target.value)}
                   placeholder="(11) 98765-4321"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-teal-500 outline-none"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>
 
@@ -392,14 +392,14 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
                   rows={4}
                   value={wpCustomMessage}
                   onChange={e => setWpCustomMessage(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-teal-500 outline-none leading-relaxed"
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none leading-relaxed"
                 />
               </div>
 
-              <div className="p-3 rounded-xl border border-teal-200 bg-teal-50/40 flex items-center justify-between">
+              <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-teal-700" />
-                  <span className="font-bold text-teal-900 font-mono text-[11px]">
+                  <FileText className="w-4 h-4 text-emerald-700" />
+                  <span className="font-bold text-emerald-900 font-mono text-[11px]">
                     {PdfExportService.getQuotePdfFilename(quoteForWhatsApp)}
                   </span>
                 </div>
@@ -414,7 +414,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onViewQuote 
               <Button
                 variant="primary"
                 icon={<Send className="w-3.5 h-3.5" />}
-                className="bg-teal-600 hover:bg-teal-700 border-teal-600"
+                className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600"
                 onClick={handleConfirmSendWhatsApp}
                 disabled={isSendingWhatsApp || !wpRecipientPhone}
               >

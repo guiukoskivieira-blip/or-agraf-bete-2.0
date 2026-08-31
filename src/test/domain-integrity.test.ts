@@ -39,6 +39,7 @@ import {
   calculateProductPrice,
 } from '../domain/product-catalog';
 import { Product } from '../types/product';
+import { evaluateQuoteApproval } from '../domain/quote-approval';
 
 export interface TestResult {
   suiteName: string;
@@ -205,6 +206,55 @@ export function runAllDomainTests(): { results: TestResult[]; total: number; pas
   assert(canDownloadQuotePdf(dummyUser), 'Comercial pode baixar PDF', '10. Permissões Granulares');
   assert(canSendQuoteWhatsApp(dummyUser), 'Comercial pode enviar WhatsApp', '10. Permissões Granulares');
   assert(!hasUserPermission(dummyUser, 'users_permissions', 'delete'), 'Comercial não pode excluir usuários', '10. Permissões Granulares');
+
+  const awaitingQuote: Quote = { ...testQuote, status: 'awaiting_customer' };
+  assert(
+    evaluateQuoteApproval(awaitingQuote, dummyUser.tenantId, dummyUser).allowed,
+    'Usuário autorizado pode aprovar orçamento aguardando cliente',
+    '10. Permissões Granulares'
+  );
+  const rejectedDecision = evaluateQuoteApproval(
+    { ...testQuote, status: 'rejected' },
+    dummyUser.tenantId,
+    dummyUser
+  );
+  assert(
+    'reason' in rejectedDecision && rejectedDecision.reason === 'INVALID_STATUS',
+    'Orçamento recusado não pode ser aprovado',
+    '10. Permissões Granulares'
+  );
+  const otherTenantDecision = evaluateQuoteApproval(
+    awaitingQuote,
+    'emp_outro_tenant',
+    { ...dummyUser, tenantId: 'emp_outro_tenant' }
+  );
+  assert(
+    'reason' in otherTenantDecision && otherTenantDecision.reason === 'TENANT_MISMATCH',
+    'Aprovação de outro tenant é bloqueada na regra de negócio',
+    '10. Permissões Granulares'
+  );
+  const noApprovalPermissionUser: User = {
+    ...dummyUser,
+    role: 'reception',
+    baseProfile: 'reception',
+    permissions: getDefaultPermissionsForProfile('reception'),
+  };
+  const permissionDecision = evaluateQuoteApproval(
+    awaitingQuote,
+    noApprovalPermissionUser.tenantId,
+    noApprovalPermissionUser
+  );
+  assert(
+    'reason' in permissionDecision && permissionDecision.reason === 'PERMISSION_DENIED',
+    'Aprovação sem permissão é bloqueada na regra de negócio',
+    '10. Permissões Granulares'
+  );
+  const alreadyApprovedDecision = evaluateQuoteApproval(testQuote, dummyUser.tenantId, dummyUser);
+  assert(
+    'reason' in alreadyApprovedDecision && alreadyApprovedDecision.idempotent === true,
+    'Reaprovação é tratada como idempotente e não gera novo evento',
+    '10. Permissões Granulares'
+  );
 
   // 11. Isolamento Multi-Tenancy
   assert(testQuote.tenantId === dummyUser.tenantId, 'Isolamento por tenantId garantido', '11. Multi-Tenant');

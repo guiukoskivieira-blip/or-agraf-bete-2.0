@@ -196,7 +196,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Buscar por nome, e-mail ou perfil..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
             />
           </div>
 
@@ -252,7 +252,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
               <Card className="p-0 overflow-hidden bg-white border-slate-200 shadow-xs">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-blue-600" />
+                    <Users className="w-4 h-4 text-emerald-600" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                       Usuários Ativos e Inativos ({filteredUsers.length})
                     </h3>
@@ -268,7 +268,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
                       <div
                         key={user.id}
                         className={`p-4 flex items-center justify-between gap-4 transition-colors ${
-                          isSelected ? 'bg-blue-50/70 border-l-4 border-blue-600' : 'hover:bg-slate-50/60'
+                          isSelected ? 'bg-emerald-50/70 border-l-4 border-emerald-600' : 'hover:bg-slate-50/60'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -279,7 +279,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
                               className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                               {user.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
@@ -288,7 +288,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
                             <div className="flex items-center gap-1.5">
                               <span className="font-bold text-xs text-slate-900 truncate">{user.name}</span>
                               {isSelf && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] bg-blue-50 text-blue-600 font-bold border border-blue-200">
+                                <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-50 text-emerald-600 font-bold border border-emerald-200">
                                   Você
                                 </span>
                               )}
@@ -339,7 +339,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
                 <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-5">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-blue-600" />
+                      <Shield className="w-4 h-4 text-emerald-600" />
                       <h3 className="text-sm font-bold text-slate-900">
                         {isCreatingUser ? 'Novo Usuário do Sistema' : `Editar Permissões: ${selectedUserForEdit?.name}`}
                       </h3>
@@ -386,7 +386,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
                             onClick={() => handleProfileChange(p)}
                             className={`p-2.5 rounded-xl border text-xs font-bold capitalize transition-all cursor-pointer ${
                               formUserData.baseProfile === p
-                                ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-xs'
+                                ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
@@ -421,7 +421,7 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
                                       type="checkbox"
                                       checked={isChecked}
                                       onChange={() => handleTogglePermission(modKey, actionKey)}
-                                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                                      className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
                                     />
                                     <span>{actionDef?.label || actionKey}</span>
                                   </label>

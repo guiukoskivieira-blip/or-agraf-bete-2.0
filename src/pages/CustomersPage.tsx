@@ -315,7 +315,7 @@ export const CustomersPage: React.FC = () => {
                     {/* Nome / Razão Social */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center font-bold text-sm shrink-0">
                           {initial}
                         </div>
                         <div className="min-w-0">
@@ -387,7 +387,7 @@ export const CustomersPage: React.FC = () => {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleOpenEditModal(customer)}
-                          className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
                           title="Editar cadastro do cliente"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -416,7 +416,7 @@ export const CustomersPage: React.FC = () => {
         {filteredCustomers.length === 0 && (
           <div className="p-8">
             <EmptyState
-              icon={<Users className="w-8 h-8 text-teal-600" />}
+              icon={<Users className="w-8 h-8 text-emerald-600" />}
               title={
                 searchTerm || statusFilter !== 'all'
                   ? 'Nenhum cliente encontrado'
@@ -455,7 +455,7 @@ export const CustomersPage: React.FC = () => {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-teal-50 text-teal-700 border border-teal-200">
+                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
                   {editingCustomer ? <Edit2 className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
                 </div>
                 <div>
@@ -491,7 +491,7 @@ export const CustomersPage: React.FC = () => {
                     onClick={() => setFormData({ ...formData, type: 'company' })}
                     className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       formData.type === 'company'
-                        ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs'
+                        ? 'bg-emerald-50 border-emerald-600 text-emerald-700 shadow-xs'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -503,7 +503,7 @@ export const CustomersPage: React.FC = () => {
                     onClick={() => setFormData({ ...formData, type: 'person' })}
                     className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       formData.type === 'person'
-                        ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-xs'
+                        ? 'bg-emerald-50 border-emerald-600 text-emerald-700 shadow-xs'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -602,7 +602,7 @@ export const CustomersPage: React.FC = () => {
                     type="checkbox"
                     checked={formData.isActive}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
                   />
                   <span className="text-xs font-semibold text-slate-700">
                     Cliente ativo para elaboração de propostas comerciais

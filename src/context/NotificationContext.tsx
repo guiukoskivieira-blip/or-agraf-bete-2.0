@@ -84,7 +84,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
               {item.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
               {item.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-600" />}
               {item.type === 'error' && <XCircle className="w-5 h-5 text-rose-600" />}
-              {item.type === 'info' && <Info className="w-5 h-5 text-blue-600" />}
+              {item.type === 'info' && <Info className="w-5 h-5 text-emerald-600" />}
             </div>
 
             <div className="flex-1 min-w-0">

@@ -1,311 +1,82 @@
-/**
- * @file GeneralPage.tsx
- * @description Visão Geral Comercial do OrçaGraf com Navegação Direta para Detalhes dos Orçamentos
- * @project OrçaGraf
- */
-
-import React, { useState, useMemo } from 'react';
-import {
-  FileText,
-  PlusCircle,
-  ArrowRight,
-  Clock,
-  CheckCircle2,
-  ChevronRight,
-  X,
-} from 'lucide-react';
-import { Card } from '../components/ui/Card';
+import React, { useMemo, useRef, useState } from 'react';
+import { ArrowRight, CheckCircle2, ChevronRight, CircleDollarSign, Clock3, FileText, Filter, List, Plus, Users, X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { useTenant } from '../context/TenantContext';
 import { useCommercial } from '../context/CommercialContext';
+import { useTenant } from '../context/TenantContext';
 import { formatCentsToBRL } from '../domain/money';
 import { QUOTE_STATUS_METADATA } from '../domain/quote-status';
 import { hasUserPermission } from '../types/tenant';
 import { Quote } from '../types/quote';
 
-interface GeneralPageProps {
-  onNavigate: (route: string) => void;
-  onNewQuote: () => void;
-}
+interface GeneralPageProps { onNavigate: (route: string) => void; onNewQuote: () => void }
 
 export const GeneralPage: React.FC<GeneralPageProps> = ({ onNavigate, onNewQuote }) => {
-  const { currentCompany, currentUser } = useTenant();
-  const { quotes, metrics, approveQuote } = useCommercial();
-
-  // Estado para confirmação de aprovação rápida
+  const { currentUser } = useTenant();
+  const { quotes, metrics, customers, approveQuote } = useCommercial();
   const [quoteToApprove, setQuoteToApprove] = useState<Quote | null>(null);
   const [isApproving, setIsApproving] = useState(false);
-
-  // Trigger Ref para retorno de foco
-  const triggerRef = React.useRef<HTMLElement | null>(null);
-
-  const handleCloseApproveModal = () => {
-    if (isApproving) return;
-    setQuoteToApprove(null);
-    triggerRef.current?.focus();
-  };
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const canApprove = useMemo(() => ['owner', 'admin', 'manager'].includes(currentUser.role) || hasUserPermission(currentUser, 'quotes', 'approve'), [currentUser]);
+  const activeCustomers = customers.filter(customer => customer.isActive).length;
+  const statusRows = [
+    { key: 'awaiting_customer', label: 'Aguardando cliente', count: metrics.awaitingQuotes, color: 'bg-emerald-500' },
+    { key: 'approved', label: 'Aprovados', count: metrics.approvedQuotes, color: 'bg-emerald-600' },
+    { key: 'rejected', label: 'Recusados', count: metrics.rejectedQuotes, color: 'bg-red-500' },
+  ];
+  const total = Math.max(metrics.totalQuotes, 1);
+  const handleCloseApproveModal = () => { if (!isApproving) { setQuoteToApprove(null); triggerRef.current?.focus(); } };
+  const confirmApproval = () => { if (!quoteToApprove || isApproving) return; setIsApproving(true); try { approveQuote(quoteToApprove.id); setQuoteToApprove(null); } finally { setIsApproving(false); } };
 
   React.useEffect(() => {
     if (!quoteToApprove) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isApproving) {
-        e.stopPropagation();
-        handleCloseApproveModal();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && handleCloseApproveModal();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [quoteToApprove, isApproving]);
 
-  // Permissão de aprovação
-  const canApprove = useMemo(() => {
-    if (currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'manager') {
-      return true;
-    }
-    return hasUserPermission(currentUser, 'quotes', 'approve');
-  }, [currentUser]);
-
-  const handleOpenQuoteDetails = (quoteId: string) => {
-    onNavigate(`quotes/${quoteId}`);
-  };
-
-  const handleKeyDownQuote = (e: React.KeyboardEvent, quoteId: string) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleOpenQuoteDetails(quoteId);
-    }
-  };
-
-  const handleConfirmApprove = () => {
-    if (!quoteToApprove || isApproving) return;
-    setIsApproving(true);
-    try {
-      approveQuote(quoteToApprove.id);
-      handleCloseApproveModal();
-    } finally {
-      setIsApproving(false);
-    }
-  };
+  const cards = [
+    { label: 'Aguardando cliente', value: metrics.awaitingQuotes.toString(), detail: 'orçamentos', icon: Clock3 },
+    { label: 'Orçamentos aprovados', value: metrics.approvedQuotes.toString(), detail: 'orçamentos', icon: CheckCircle2 },
+    { label: 'Clientes ativos', value: activeCustomers.toString(), detail: 'clientes', icon: Users },
+    { label: 'Valor aprovado', value: formatCentsToBRL(metrics.totalApprovedValueCents), detail: 'valor total', icon: CircleDollarSign },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner / Welcome */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-xs">
-              {currentCompany.tradeName}
-            </span>
-            <span className="text-xs text-blue-100 font-medium">OrçaGraf Comercial</span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            Olá, {currentUser.name.split(' ')[0]}!
-          </h1>
-          <p className="text-sm text-blue-100 max-w-xl">
-            Elabore propostas gráficas, aplique descontos comerciais, gere e baixe propostas em PDF profissional.
-          </p>
+    <div className="space-y-6 lg:space-y-7">
+      <section className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+        <div><h1 className="text-3xl font-bold tracking-tight text-slate-950 lg:text-[34px]">Visão geral comercial</h1><p className="mt-1.5 text-sm text-slate-500 lg:text-base">Acompanhe oportunidades, propostas e resultados da sua gráfica.</p></div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button size="lg" onClick={onNewQuote} icon={<Plus className="h-5 w-5" />}>Novo orçamento</Button>
+          <Button size="lg" variant="outline" onClick={() => onNavigate('quotes')} icon={<List className="h-5 w-5" />}>Ver orçamentos</Button>
         </div>
+      </section>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onNewQuote}
-            className="px-4 py-2.5 rounded-xl bg-white text-blue-700 font-bold text-sm hover:bg-blue-50 shadow-sm transition-all cursor-pointer flex items-center gap-2 active:scale-98 shrink-0"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Novo Orçamento</span>
-          </button>
-        </div>
-      </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores comerciais">
+        {cards.map(({ label, value, detail, icon: Icon }) => <article key={label} className="min-h-[176px] rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_5px_20px_rgba(15,23,42,0.04)]">
+          <div className="flex items-start justify-between gap-3"><span className="text-sm font-medium text-slate-800">{label}</span><span className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Icon className="h-6 w-6" /></span></div>
+          <div className="mt-4 text-[30px] font-bold leading-none text-emerald-600">{value}</div><div className="mt-2 text-sm text-slate-500">{detail}</div>
+        </article>)}
+      </section>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
-        <Card className="p-5 bg-white border-slate-200 flex items-center gap-4 shadow-xs">
-          <div className="p-3.5 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 shrink-0">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Aguardando Cliente</div>
-            <div className="text-2xl font-black text-slate-900 leading-tight">{metrics.awaitingQuotes}</div>
-            <div className="text-xs text-slate-500 font-mono mt-0.5">{formatCentsToBRL(metrics.totalAwaitingValueCents)}</div>
-          </div>
-        </Card>
+      <section className="grid gap-5 xl:grid-cols-[0.95fr_1.35fr]">
+        <article className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_5px_20px_rgba(15,23,42,0.04)]">
+          <header className="flex items-center gap-3 border-b border-slate-100 pb-5"><Filter className="h-6 w-6 text-emerald-600" /><h2 className="text-lg font-semibold">Pipeline de orçamentos</h2></header>
+          <div className="divide-y divide-slate-100">{statusRows.map(row => { const percent = Math.round(row.count / total * 100); return <div key={row.key} className="grid grid-cols-[minmax(125px,1fr)_minmax(110px,1.4fr)] items-center gap-3 py-5 text-sm sm:grid-cols-[minmax(120px,1fr)_minmax(100px,1.4fr)_35px_45px]"><span>{row.label}</span><span className="h-3 overflow-hidden rounded bg-slate-100" title={`${row.count} orçamento(s), ${percent}%`}><span className={`block h-full rounded ${row.color}`} style={{ width: `${percent}%` }} /></span><strong className="hidden sm:block">{row.count}</strong><span className="hidden text-right text-slate-500 sm:block">{percent}%</span></div>; })}</div>
+          <div className="flex justify-between border-t border-slate-100 pt-5 text-sm"><span>Total de orçamentos no período</span><strong className="text-lg">{metrics.totalQuotes}</strong></div>
+        </article>
 
-        <Card className="p-5 bg-white border-slate-200 flex items-center gap-4 shadow-xs">
-          <div className="p-3.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Orçamentos Aprovados</div>
-            <div className="text-2xl font-black text-emerald-600 leading-tight">{metrics.approvedQuotes}</div>
-            <div className="text-xs text-slate-500 font-mono mt-0.5">{formatCentsToBRL(metrics.totalApprovedValueCents)}</div>
-          </div>
-        </Card>
-      </div>
+        <article className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_5px_20px_rgba(15,23,42,0.04)]">
+          <header className="flex items-center gap-3 border-b border-slate-100 pb-5"><CheckCircle2 className="h-6 w-6 text-emerald-600" /><h2 className="text-lg font-semibold">Ações comerciais</h2></header>
+          <div className="divide-y divide-slate-100">{quotes.slice(0, 5).map(quote => { const meta = QUOTE_STATUS_METADATA[quote.status]; return <div key={quote.id} role="button" tabIndex={0} onClick={() => onNavigate(`quotes/${quote.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') onNavigate(`quotes/${quote.id}`); }} className="group flex cursor-pointer flex-col gap-3 py-4 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-slate-950">{quote.quoteNumber} — {quote.items[0]?.productName || 'Proposta comercial'}</div><div className="mt-1 truncate text-sm text-slate-500">Cliente: {quote.customerName}</div></div>
+            <div className="flex items-center justify-between gap-3 sm:justify-end"><div className="text-right"><div className={`text-sm font-medium ${quote.status === 'rejected' ? 'text-red-600' : 'text-emerald-600'}`}>{meta.label}</div><div className="mt-1 text-xs text-slate-500">Atualizado: {new Intl.DateTimeFormat('pt-BR').format(new Date(quote.updatedAt))}</div></div>
+            {quote.status === 'awaiting_customer' && canApprove && <button onClick={event => { event.stopPropagation(); triggerRef.current = event.currentTarget; setQuoteToApprove(quote); }} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label={`Aprovar orçamento ${quote.quoteNumber}`}>Aprovar</button>}<ChevronRight className="h-5 w-5 text-emerald-600" /></div>
+          </div>; })}</div>
+          <button onClick={() => onNavigate('quotes')} className="mt-4 flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500">Ver todas as ações <ArrowRight className="h-4 w-4" /></button>
+        </article>
+      </section>
 
-      {/* Recent Quotes com Clique Inteiro no Card abrindo a rota /quotes/:quoteId */}
-      <div className="w-full">
-        <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-600" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                Últimos Orçamentos Registrados
-              </h2>
-            </div>
-            <button
-              onClick={() => onNavigate('quotes')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
-            >
-              <span>Ver todos os orçamentos</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {quotes.slice(0, 6).map(quote => {
-              const meta = QUOTE_STATUS_METADATA[quote.status];
-              return (
-                <div
-                  key={quote.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleOpenQuoteDetails(quote.id)}
-                  onKeyDown={e => handleKeyDownQuote(e, quote.id)}
-                  className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/90 hover:bg-blue-50/40 hover:border-blue-300 transition-all flex items-center justify-between gap-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 group"
-                  aria-label={`Abrir detalhes do orçamento ${quote.quoteNumber} para ${quote.customerName}`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-slate-900 font-mono group-hover:text-blue-600 transition-colors">
-                        {quote.quoteNumber}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          quote.status === 'approved'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : quote.status === 'rejected'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-sky-50 text-sky-700 border-sky-200'
-                        }`}
-                      >
-                        {meta.label}
-                      </span>
-                    </div>
-                    <div className="text-xs font-bold text-slate-800 truncate mt-1">
-                      {quote.customerName}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      {quote.items.map(i => i.productName).join(', ')} • {quote.items.length} {quote.items.length === 1 ? 'item' : 'itens'} • {quote.paymentTerms || 'À vista'}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
-                      <div className="text-xs text-slate-400 font-mono">Total Final</div>
-                      <div className="text-base font-extrabold text-slate-900 font-mono">
-                        {formatCentsToBRL(quote.totalCents)}
-                      </div>
-                    </div>
-
-                    {/* Botão de Aprovação na Página Geral */}
-                    {quote.status === 'awaiting_customer' && canApprove && (
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          triggerRef.current = e.currentTarget;
-                          setQuoteToApprove(quote);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow transition-all cursor-pointer shrink-0 border border-blue-700 active:scale-95"
-                        title="Aprovar este orçamento"
-                        aria-label={`Aprovar orçamento ${quote.quoteNumber}`}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Aprovar</span>
-                      </button>
-                    )}
-
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-
-      {/* Modal de Confirmação de Aprovação */}
-      {quoteToApprove && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isApproving) handleCloseApproveModal();
-          }}
-        >
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-900">
-            <div className="p-4 border-b border-slate-200 bg-blue-50/70 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-blue-900 font-bold text-sm">
-                <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                <span>Confirmar Aprovação do Orçamento</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseApproveModal}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
-                disabled={isApproving}
-                aria-label="Fechar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 font-sans">
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Número:</span>
-                  <span className="font-mono font-bold text-slate-900">{quoteToApprove.quoteNumber}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Cliente:</span>
-                  <span className="font-bold text-slate-900 truncate max-w-[200px]">{quoteToApprove.customerName}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-500 pt-1.5 border-t border-slate-200">
-                  <span>Valor Total:</span>
-                  <span className="font-mono font-black text-sm text-blue-600">
-                    {formatCentsToBRL(quoteToApprove.totalCents)}
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-slate-600 leading-relaxed">
-                Aprovar este orçamento? Após a aprovação, o orçamento será registrado como aprovado comercialmente no OrçaGraf.
-              </p>
-            </div>
-
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={handleCloseApproveModal}
-                disabled={isApproving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                className="bg-blue-600 hover:bg-blue-700 border-blue-600 text-white font-bold"
-                onClick={handleConfirmApprove}
-                disabled={isApproving}
-              >
-                {isApproving ? 'Processando...' : 'Confirmar aprovação'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {quoteToApprove && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" onClick={event => event.target === event.currentTarget && handleCloseApproveModal()}><div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"><header className="flex items-center justify-between border-b border-slate-100 p-5"><div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-5 w-5 text-emerald-600" />Confirmar aprovação</div><button onClick={handleCloseApproveModal} className="rounded-lg p-1.5 hover:bg-slate-100" aria-label="Fechar"><X className="h-5 w-5" /></button></header><div className="space-y-4 p-5"><div className="rounded-xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><span className="text-slate-500">Orçamento</span><strong>{quoteToApprove.quoteNumber}</strong></div><div className="mt-2 flex justify-between"><span className="text-slate-500">Valor</span><strong className="text-emerald-700">{formatCentsToBRL(quoteToApprove.totalCents)}</strong></div></div><p className="text-sm text-slate-600">O orçamento será registrado como aprovado comercialmente no OrçaGraf.</p></div><footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 p-4"><Button variant="ghost" onClick={handleCloseApproveModal}>Cancelar</Button><Button onClick={confirmApproval} disabled={isApproving}>{isApproving ? 'Processando...' : 'Confirmar aprovação'}</Button></footer></div></div>}
     </div>
   );
 };

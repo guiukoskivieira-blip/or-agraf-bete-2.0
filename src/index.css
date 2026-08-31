@@ -19,8 +19,8 @@
   --border-strong: #cbd5e1;
 
   /* Ações e Cores da Marca */
-  --primary: #075cd6;
-  --primary-hover: #064fb8;
+  --primary: #059669;
+  --primary-hover: #047857;
   --primary-foreground: #ffffff;
 
   /* Estados e Badges */
@@ -62,6 +62,16 @@ option,
 optgroup,
 dialog {
   color-scheme: light;
+}
+
+:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #a7f3d0;
+  color: #064e3b;
 }
 
 /* Scrollbar estilizada em tons claros */

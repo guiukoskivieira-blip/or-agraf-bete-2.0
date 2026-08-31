@@ -228,7 +228,7 @@ const AuthRouteGuard: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4" role="status" aria-live="polite">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-slate-600 font-medium text-sm">Verificando sessão de acesso...</p>
         </div>
       </div>

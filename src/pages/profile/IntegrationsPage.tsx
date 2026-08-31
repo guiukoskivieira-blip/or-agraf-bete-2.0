@@ -38,13 +38,13 @@ export const IntegrationsPage: React.FC<IntegrationsPageProps> = ({ onNavigateSe
     >
       <div className="space-y-6 max-w-4xl">
         {/* Aviso de Ambiente Standalone */}
-        <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200/80 flex items-start gap-3.5">
-          <Info className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
-          <div className="space-y-1 text-xs text-sky-900">
+        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-start gap-3.5">
+          <Info className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-xs text-emerald-900">
             <span className="font-bold text-sm block">
               Ambiente Standalone ({currentCompany.tradeName})
             </span>
-            <p className="text-sky-800 leading-relaxed">
+            <p className="text-emerald-800 leading-relaxed">
               O OrçaGraf opera de forma independente para formação de preço, cadastro de clientes, elaboração de orçamentos e download de relatórios comerciais em PDF. Integrações externas e sincronização em nuvem serão gerenciadas futuramente pela plataforma Prexyon.
             </p>
           </div>
@@ -54,7 +54,7 @@ export const IntegrationsPage: React.FC<IntegrationsPageProps> = ({ onNavigateSe
         <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-teal-50 text-teal-600 border border-teal-100">
+              <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
                 <MessageSquare className="w-6 h-6" />
               </div>
               <div>
@@ -84,7 +84,7 @@ export const IntegrationsPage: React.FC<IntegrationsPageProps> = ({ onNavigateSe
         {/* Card 2: Ecossistema Prexyon (ArteCheck e ArteFlow) */}
         <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-5">
           <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-            <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
@@ -103,10 +103,10 @@ export const IntegrationsPage: React.FC<IntegrationsPageProps> = ({ onNavigateSe
             <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FileCheck className="w-4 h-4 text-teal-600" />
+                  <FileCheck className="w-4 h-4 text-emerald-600" />
                   <span className="font-bold text-xs text-slate-900">ArteCheck</span>
                 </div>
-                <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                   Pré-impressão
                 </span>
               </div>
@@ -122,10 +122,10 @@ export const IntegrationsPage: React.FC<IntegrationsPageProps> = ({ onNavigateSe
             <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-indigo-600" />
+                  <Layers className="w-4 h-4 text-emerald-600" />
                   <span className="font-bold text-xs text-slate-900">ArteFlow</span>
                 </div>
-                <span className="text-[10px] text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                   Produção & PCP
                 </span>
               </div>

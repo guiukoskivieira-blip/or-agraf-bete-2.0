@@ -16,7 +16,7 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClasses =
-    'inline-flex items-center justify-center font-medium transition-all rounded-xl cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 outline-none select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none';
+    'inline-flex items-center justify-center font-medium transition-all rounded-xl cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 outline-none select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none';
 
   const sizeClasses = {
     sm: 'text-xs px-3 py-1.5 gap-1.5 min-h-[36px] min-w-[36px]',
@@ -26,7 +26,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantClasses = {
     primary:
-      'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-xs hover:shadow active:scale-[0.98] border border-blue-600/30',
+      'bg-gradient-to-r from-emerald-600 to-emerald-600 hover:from-emerald-700 hover:to-emerald-700 text-white font-semibold shadow-xs hover:shadow active:scale-[0.98] border border-emerald-600/30',
     secondary:
       'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 shadow-xs active:scale-[0.98]',
     outline:
@@ -36,7 +36,7 @@ export const Button: React.FC<ButtonProps> = ({
     danger:
       'bg-rose-600 hover:bg-rose-700 text-white shadow-xs active:scale-[0.98]',
     teal:
-      'bg-teal-600 hover:bg-teal-700 text-white shadow-xs active:scale-[0.98]',
+      'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:scale-[0.98]',
   };
 
   return (

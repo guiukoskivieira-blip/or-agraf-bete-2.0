@@ -39,7 +39,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
   const displayError = clientError || authError;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-indigo-50/40 flex flex-col items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-emerald-50/40 flex flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md space-y-6">
         {/* Header com Logo Oficial */}
         <div className="flex flex-col items-center text-center space-y-2">
@@ -95,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
                   placeholder="seu.email@grafica.com.br"
                   autoComplete="email"
                   required
-                  className="w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl py-2.5 pl-10 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-600 outline-none transition-all shadow-xs disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                  className="w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl py-2.5 pl-10 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-600 outline-none transition-all shadow-xs disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -112,7 +112,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
                 <button
                   type="button"
                   onClick={onNavigateForgotPassword}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold focus-visible:ring-2 focus-visible:ring-blue-500 rounded outline-none cursor-pointer"
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold focus-visible:ring-2 focus-visible:ring-emerald-500 rounded outline-none cursor-pointer"
                 >
                   Esqueci minha senha
                 </button>
@@ -135,12 +135,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
                   placeholder="••••••••"
                   autoComplete="current-password"
                   required
-                  className="w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-600 outline-none transition-all shadow-xs disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                  className="w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-600 outline-none transition-all shadow-xs disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 outline-none cursor-pointer"
+                  className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500 outline-none cursor-pointer"
                   aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
                   tabIndex={-1}
                 >

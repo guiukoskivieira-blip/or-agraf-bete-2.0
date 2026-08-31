@@ -9,7 +9,7 @@
  * O módulo Financeiro (Contas a Receber, Pagar, Caixa, DRE, etc.) reside exclusivamente no ArteFlow.
  */
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Quote,
   QuoteStatus,
@@ -29,6 +29,7 @@ import { WhatsAppIntegrationService } from '../services/whatsapp-integration.ser
 import { calculateQuoteTotals } from '../domain/quote-calculator';
 import { formatCentsToBRL } from '../domain/money';
 import { getEnvironmentCapabilities } from '../domain/environment-capabilities';
+import { evaluateQuoteApproval } from '../domain/quote-approval';
 import {
   getInitialProductsTemplate,
   initializeTenantProducts,
@@ -343,6 +344,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   const { showNotice } = useNotification();
 
   const [quotesList, setQuotesList] = useState<Quote[]>(INITIAL_QUOTES);
+  const approvedQuoteIdsRef = useRef<Set<string>>(new Set());
   
   // Produtos por Tenant (Inicialização Idempotente dos 15 produtos oficiais)
   const [allProducts, setAllProducts] = useState<Product[]>(() => {
@@ -964,6 +966,9 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
 
   // Atualização de Status
   const updateQuoteStatus = (quoteId: string, status: QuoteStatus, reason?: string): boolean => {
+    if (status === 'approved') {
+      return approveQuote(quoteId).success;
+    }
     let success = false;
     setQuotesList(prev =>
       prev.map(q => {
@@ -973,8 +978,8 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
           id: `evt_${Date.now()}_st`,
           quoteId: q.id,
           tenantId,
-          type: status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'updated',
-          description: `Status alterado para "${status === 'approved' ? 'Aprovado' : status === 'rejected' ? 'Recusado' : 'Aguardando Cliente'}". ${reason ? 'Motivo: ' + reason : ''}`,
+          type: status === 'rejected' ? 'rejected' : 'updated',
+          description: `Status alterado para "${status === 'rejected' ? 'Recusado' : 'Aguardando Cliente'}". ${reason ? 'Motivo: ' + reason : ''}`,
           createdAt: new Date().toISOString(),
           userId: currentUser.id,
           userName: currentUser.name,
@@ -998,10 +1003,22 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       return { success: false };
     }
 
-    if (targetQuote.status === 'approved') {
+    if (approvedQuoteIdsRef.current.has(quoteId)) {
       showNotice('Já Aprovado', 'Este orçamento já consta como aprovado.', 'info');
       return { success: true };
     }
+
+    const decision = evaluateQuoteApproval(targetQuote, tenantId, currentUser);
+    if ('reason' in decision) {
+      showNotice(
+        decision.idempotent ? 'Já Aprovado' : 'Aprovação não permitida',
+        decision.message,
+        decision.idempotent ? 'info' : 'error'
+      );
+      return { success: Boolean(decision.idempotent) };
+    }
+
+    approvedQuoteIdsRef.current.add(quoteId);
 
     const capabilities = getEnvironmentCapabilities();
     const payload = capabilities.canUseArteFlow
@@ -1011,7 +1028,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     const now = new Date().toISOString();
     setQuotesList(prev =>
       prev.map(q => {
-        if (q.id !== quoteId) return q;
+        if (q.id !== quoteId || q.tenantId !== tenantId) return q;
         const approveEvent: QuoteEvent = {
           id: `evt_${Date.now()}_appr`,
           quoteId: q.id,
@@ -1048,7 +1065,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     const now = new Date().toISOString();
     setQuotesList(prev =>
       prev.map(q => {
-        if (q.id !== quoteId) return q;
+        if (q.id !== quoteId || q.tenantId !== tenantId) return q;
         const rejectEvent: QuoteEvent = {
           id: `evt_${Date.now()}_rej`,
           quoteId: q.id,

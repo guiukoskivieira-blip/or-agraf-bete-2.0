@@ -1085,7 +1085,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 text-slate-800">
-            <UserIcon className="w-4 h-4 text-blue-600" />
+            <UserIcon className="w-4 h-4 text-emerald-600" />
             <h2 className="text-sm font-bold uppercase tracking-wider">
               1. Dados do Cliente
             </h2>
@@ -1109,7 +1109,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                   setIsCustomerDropdownOpen(true);
                 }}
                 placeholder="Buscar cliente cadastrado por nome, documento, e-mail ou telefone..."
-                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all shadow-2xs"
+                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-all shadow-2xs"
               />
             </div>
 
@@ -1143,17 +1143,17 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     key={cust.id}
                     type="button"
                     onClick={() => handleSelectCustomer(cust)}
-                    className="w-full text-left p-3 hover:bg-blue-50/70 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
+                    className="w-full text-left p-3 hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 group-hover:text-blue-700 truncate">
+                      <p className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 truncate">
                         {cust.name}
                       </p>
                       <p className="text-[11px] text-slate-500 truncate">
                         {cust.document ? `Doc: ${cust.document}` : 'Sem documento'} • {cust.phone || cust.whatsapp || cust.email || 'Sem contato'}
                       </p>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold shrink-0 bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-800">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold shrink-0 bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800">
                       {cust.type === 'company' ? 'PJ' : 'PF'}
                     </span>
                   </button>
@@ -1205,7 +1205,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 text-slate-800">
-            <Layers className="w-4 h-4 text-blue-600" />
+            <Layers className="w-4 h-4 text-emerald-600" />
             <h2 className="text-sm font-bold uppercase tracking-wider">
               Itens da Proposta Gráfica ({items.length})
             </h2>
@@ -1216,7 +1216,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
               type="button"
               variant="secondary"
               size="sm"
-              icon={<Package className="w-3.5 h-3.5 text-blue-600" />}
+              icon={<Package className="w-3.5 h-3.5 text-emerald-600" />}
               onClick={() => handleOpenCatalogPicker()}
             >
               + Adicionar do Catálogo
@@ -1245,7 +1245,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                 {/* Linha 1: Cabeçalho do Item */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/60">
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                       {index + 1}
                     </span>
 
@@ -1257,7 +1257,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                             value={item.productName}
                             onChange={e => handleUpdateItem(item.id, 'productName', e.target.value)}
                             placeholder="Descrição do produto gráfico personalizado..."
-                            className="font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-blue-500 focus:outline-none pb-0.5 min-w-[200px]"
+                            className="font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none pb-0.5 min-w-[200px]"
                           />
                           <select
                             value={mode}
@@ -1287,7 +1287,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                           <button
                             type="button"
                             onClick={() => handleOpenCatalogPicker(item.id)}
-                            className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                            className="text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold underline cursor-pointer"
                           >
                             Trocar produto
                           </button>
@@ -1329,7 +1329,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       min={1}
                       value={item.quantity}
                       onChange={e => handleUpdateItem(item.id, 'quantity', e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 
@@ -1345,7 +1345,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         value={item.lotSize || 1000}
                         onChange={e => handleUpdateItem(item.id, 'lotSize', e.target.value)}
                         placeholder="1000"
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   )}
@@ -1362,7 +1362,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                           value={item.widthMm || ''}
                           onChange={e => handleUpdateItem(item.id, 'widthMm', e.target.value)}
                           placeholder="Ex: 1000"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
                       <div>
@@ -1375,7 +1375,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                           value={item.heightMm || ''}
                           onChange={e => handleUpdateItem(item.id, 'heightMm', e.target.value)}
                           placeholder="Ex: 1500"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
                     </>
@@ -1393,7 +1393,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         value={item.lengthMeters !== undefined ? item.lengthMeters : (item.widthMm ? item.widthMm / 1000 : 1)}
                         onChange={e => handleUpdateItem(item.id, 'lengthMeters', e.target.value)}
                         placeholder="Ex: 3.00"
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   )}
@@ -1407,7 +1407,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       <select
                         value={item.materialName}
                         onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
                         {item.availableMaterials.map(mat => (
                           <option key={mat} value={mat}>
@@ -1421,7 +1421,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         value={item.materialName}
                         onChange={e => handleUpdateItem(item.id, 'materialName', e.target.value)}
                         placeholder="Ex: Papel Couché 300g, Lona Frontlight..."
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     )}
                   </div>
@@ -1442,16 +1442,16 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       value={item.unitPriceStr}
                       onChange={e => handleUpdateItem(item.id, 'unitPriceStr', e.target.value)}
                       placeholder="0,00"
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 font-bold font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                 </div>
 
                 {/* Banner de Demonstração de Cálculo da Modalidade */}
                 {item.pricingSummary && (
-                  <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200/80 flex items-center justify-between text-xs text-blue-900">
+                  <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between text-xs text-emerald-900">
                     <div className="flex items-center gap-2">
-                      <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <Info className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span className="font-semibold">{item.pricingSummary}</span>
                     </div>
                     {mode === 'LOT' && item.quantity % (item.lotSize || 1000) !== 0 && (
@@ -1466,7 +1466,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                 <div className="pt-2 border-t border-slate-200/50 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Scissors className="w-3.5 h-3.5 text-blue-600" />
+                      <Scissors className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Acabamentos Técnicos do Item</span>
                     </div>
 
@@ -1522,11 +1522,11 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                               .map(fin => (
                                 <div
                                   key={fin.name}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50/90 text-blue-800 border border-blue-200 select-none"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50/90 text-emerald-800 border border-emerald-200 select-none"
                                 >
-                                  <Lock className="w-3 h-3 text-blue-600" />
+                                  <Lock className="w-3 h-3 text-emerald-600" />
                                   <span>{fin.name}</span>
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold uppercase border border-blue-200/60">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold uppercase border border-emerald-200/60">
                                     Obrigatório • Incluso sem custo
                                   </span>
                                 </div>
@@ -1586,7 +1586,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                                     onClick={() => handleToggleFinishing(item.id, fin.name)}
                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer select-none ${
                                       fin.selected
-                                        ? 'bg-teal-50 text-teal-800 border-teal-300 shadow-2xs'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
                                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
                                     }`}
                                   >
@@ -1594,7 +1594,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                                       type="checkbox"
                                       checked={fin.selected}
                                       onChange={() => {}}
-                                      className="rounded text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 pointer-events-none"
+                                      className="rounded text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5 pointer-events-none"
                                     />
                                     <span>{fin.name}</span>
                                     {fin.priceStatus === 'FREE' ? (
@@ -1602,7 +1602,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                                         Incluso
                                       </span>
                                     ) : (
-                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-medium ${fin.selected ? 'bg-teal-100/80 text-teal-900' : 'bg-slate-100 text-slate-600'}`}>
+                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-medium ${fin.selected ? 'bg-emerald-100/80 text-emerald-900' : 'bg-slate-100 text-slate-600'}`}>
                                         {fin.selected
                                           ? `+ ${formatCentsToBRL(fin.totalPriceCents)}`
                                           : `+ ${formatCentsToBRL(fin.unitPriceCents)}/${basisTag}`}
@@ -1658,7 +1658,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
         <Card className="lg:col-span-2 p-6 space-y-5 bg-white border-slate-200 shadow-xs">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
             <div className="flex items-center gap-2">
-              <Percent className="w-4 h-4 text-blue-600" />
+              <Percent className="w-4 h-4 text-emerald-600" />
               <h2 className="text-sm font-bold uppercase tracking-wider">Desconto Comercial</h2>
             </div>
             {appliedDiscount && (
@@ -1671,15 +1671,15 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
           {/* Exibição do Desconto Aplicado (Quando não estiver editando) */}
           {appliedDiscount && !isEditingDiscount ? (
-            <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-3 animate-in fade-in duration-150">
+            <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80 space-y-3 animate-in fade-in duration-150">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold text-blue-900 block">
+                  <span className="text-xs font-bold text-emerald-900 block">
                     {appliedDiscount.type === 'percentage'
                       ? `Desconto de ${appliedDiscount.value}%`
                       : `Desconto de Valor Fixo`}
                   </span>
-                  <div className="text-xl font-black text-blue-700 font-mono mt-0.5">
+                  <div className="text-xl font-black text-emerald-700 font-mono mt-0.5">
                     -{formatCentsToBRL(appliedDiscountCents)}
                   </div>
                   {appliedDiscount.reason && (
@@ -1697,7 +1697,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     type="button"
                     variant="secondary"
                     size="sm"
-                    icon={<Edit3 className="w-3.5 h-3.5 text-blue-600" />}
+                    icon={<Edit3 className="w-3.5 h-3.5 text-emerald-600" />}
                     onClick={handleStartEditDiscount}
                   >
                     Editar desconto
@@ -1743,7 +1743,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       }}
                       className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                         discountTypeInput === type.id
-                          ? 'bg-blue-50 text-blue-800 border-blue-300 ring-1 ring-blue-500/20 shadow-xs'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-500/20 shadow-xs'
                           : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
@@ -1791,7 +1791,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="text-slate-600">
                         <span className="font-semibold text-slate-800">Prévia do cálculo: </span>
-                        <span className="font-mono text-blue-700 font-bold">
+                        <span className="font-mono text-emerald-700 font-bold">
                           -{formatCentsToBRL(discountDraftPreview.discountCents)}
                         </span>
                         {' • '}
@@ -1813,7 +1813,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                 <button
                   type="button"
                   onClick={handleApplyDiscount}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-2 active:scale-98"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-2 active:scale-98"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Aplicar desconto</span>
@@ -1835,7 +1835,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
           {/* Prazo de Produção */}
           <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+            <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
             <div className="flex-1">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
                 Prazo Estimado de Produção (Dias Úteis)
@@ -1845,17 +1845,17 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                 min={1}
                 value={productionDays}
                 onChange={e => setProductionDays(Number(e.target.value))}
-                className="w-32 px-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-32 px-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
         </Card>
 
         {/* Card Resumo do Valor Total Oficial */}
-        <Card className="p-6 flex flex-col justify-between bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 border-blue-200/80 shadow-sm space-y-6">
+        <Card className="p-6 flex flex-col justify-between bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/30 border-emerald-200/80 shadow-sm space-y-6">
           <div>
-            <div className="flex items-center gap-2 pb-3 border-b border-blue-100 text-blue-900">
-              <Building2 className="w-4 h-4 text-blue-600" />
+            <div className="flex items-center gap-2 pb-3 border-b border-emerald-100 text-emerald-900">
+              <Building2 className="w-4 h-4 text-emerald-600" />
               <h2 className="text-sm font-bold uppercase tracking-wider">Resumo Comercial</h2>
             </div>
 
@@ -1866,7 +1866,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
               </div>
 
               {appliedDiscount && (
-                <div className="flex justify-between text-blue-700 font-medium">
+                <div className="flex justify-between text-emerald-700 font-medium">
                   <span>
                     Desconto {appliedDiscount.type === 'percentage' ? `(${appliedDiscount.value}%)` : ''}:
                   </span>
@@ -1874,18 +1874,18 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                 </div>
               )}
 
-              <div className="pt-3 border-t border-blue-200 flex justify-between items-baseline">
-                <span className="text-xs font-black uppercase tracking-wider text-blue-950">
+              <div className="pt-3 border-t border-emerald-200 flex justify-between items-baseline">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-950">
                   Total da Proposta
                 </span>
-                <span className="text-2xl font-black text-blue-700 font-mono">
+                <span className="text-2xl font-black text-emerald-700 font-mono">
                   {formatCentsToBRL(totalFinalCents)}
                 </span>
               </div>
 
               {selectedSeller && (
                 <div className="pt-2 text-[11px] text-slate-500 flex items-center gap-1.5 border-t border-slate-100">
-                  <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Vendedor: <strong className="text-slate-800">{selectedSeller.name}</strong></span>
                 </div>
               )}
@@ -1901,7 +1901,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       {/* 4. Condições Comerciais e Forma de Pagamento */}
       <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-slate-800">
-          <CreditCard className="w-4 h-4 text-blue-600" />
+          <CreditCard className="w-4 h-4 text-emerald-600" />
           <h2 className="text-sm font-bold uppercase tracking-wider">
             Condições Comerciais e Forma de Pagamento
           </h2>
@@ -1915,7 +1915,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
             <select
               value={paymentMethod}
               onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-              className="w-full px-3 py-2.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               {Object.entries(PAYMENT_METHOD_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
@@ -1932,7 +1932,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
             <select
               value={paymentCondition}
               onChange={e => setPaymentCondition(e.target.value as PaymentCondition)}
-              className="w-full px-3 py-2.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               {Object.entries(PAYMENT_CONDITION_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
@@ -2005,7 +2005,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       <Card className="p-6 space-y-4 bg-white border-slate-200 shadow-xs">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 text-slate-800">
-            <UserCheck className="w-4 h-4 text-blue-600" />
+            <UserCheck className="w-4 h-4 text-emerald-600" />
             <h2 className="text-sm font-bold uppercase tracking-wider">
               Vendedor e comissão — opcional
             </h2>
@@ -2026,11 +2026,11 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
               <button
                 type="button"
                 onClick={() => setIsSellerDropdownOpen(prev => !prev)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-left flex items-center justify-between hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-left flex items-center justify-between hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs transition-all cursor-pointer"
               >
                 {selectedSeller ? (
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                       {getInitials(selectedSeller.name)}
                     </div>
                     <div className="truncate">
@@ -2062,7 +2062,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         value={sellerSearchTerm}
                         onChange={e => setSellerSearchTerm(e.target.value)}
                         placeholder="Buscar vendedor na gráfica..."
-                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         autoFocus
                       />
                     </div>
@@ -2078,7 +2078,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                       }}
                       className={`w-full p-2.5 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer ${
                         selectedSellerId === null
-                          ? 'bg-blue-50 text-blue-900'
+                          ? 'bg-emerald-50 text-emerald-900'
                           : 'hover:bg-slate-50 text-slate-700'
                       }`}
                     >
@@ -2086,7 +2086,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         Sem vendedor vinculado
                       </div>
                       {selectedSellerId === null && (
-                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       )}
                     </button>
 
@@ -2106,12 +2106,12 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                           }}
                           className={`w-full p-2.5 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer ${
                             seller.id === selectedSellerId
-                              ? 'bg-blue-50 text-blue-900'
+                              ? 'bg-emerald-50 text-emerald-900'
                               : 'hover:bg-slate-50 text-slate-700'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
                               {getInitials(seller.name)}
                             </div>
                             <div className="truncate">
@@ -2125,7 +2125,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                           </div>
 
                           {seller.id === selectedSellerId && (
-                            <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                           )}
                         </button>
                       ))
@@ -2211,7 +2211,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
           <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900">
-                <Package className="w-5 h-5 text-blue-600" />
+                <Package className="w-5 h-5 text-emerald-600" />
                 <h2 className="text-lg font-black tracking-tight">
                   Selecione um Produto do Catálogo
                 </h2>
@@ -2235,14 +2235,14 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                   value={catalogSearch}
                   onChange={e => setCatalogSearch(e.target.value)}
                   placeholder="Pesquisar por nome, SKU, substrato..."
-                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               <select
                 value={catalogCategoryFilter}
                 onChange={e => setCatalogCategoryFilter(e.target.value)}
-                className="w-full sm:w-48 px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-48 px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="all">Todas as Categorias</option>
                 {PRODUCT_CATEGORIES.map(cat => (
@@ -2266,14 +2266,14 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                     <div
                       key={prod.id}
                       onClick={() => handleSelectProductFromCatalog(prod)}
-                      className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition-all cursor-pointer flex items-center justify-between gap-4 group"
+                      className="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition-all cursor-pointer flex items-center justify-between gap-4 group"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10px] font-bold">
                             {prod.sku}
                           </span>
-                          <span className="font-extrabold text-sm text-slate-900 group-hover:text-blue-700">
+                          <span className="font-extrabold text-sm text-slate-900 group-hover:text-emerald-700">
                             {prod.name}
                           </span>
                           <span className="text-[11px] text-slate-400">
@@ -2330,7 +2330,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                   setIsCatalogPickerOpen(false);
                   handleAddCustomItem();
                 }}
-                className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
+                className="text-emerald-600 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Criar Item Personalizado / Fora da Tabela</span>

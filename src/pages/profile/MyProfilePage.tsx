@@ -85,7 +85,7 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
         <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
             <div className="flex items-center gap-2">
-              <UserIcon className="w-4 h-4 text-blue-600" />
+              <UserIcon className="w-4 h-4 text-emerald-600" />
               <h2 className="text-sm font-bold uppercase tracking-wider">Identificação do Usuário</h2>
             </div>
             {currentUser.dataOrigin === 'demo' && (
@@ -105,7 +105,7 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
                   className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl font-black shadow-md">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-600 flex items-center justify-center text-white text-xl font-black shadow-md">
                   {currentUser.name.slice(0, 2).toUpperCase()}
                 </div>
               )}

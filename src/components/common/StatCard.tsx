@@ -22,16 +22,16 @@ export const StatCard: React.FC<StatCardProps> = ({
 }) => {
   const badgeClasses = {
     neutral: 'bg-slate-100 text-slate-600 border-slate-200',
-    success: 'bg-teal-50 text-teal-700 border-teal-200',
+    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    info: 'bg-blue-50 text-blue-700 border-blue-200',
+    info: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 
   return (
     <Card
       hoverable
       className={`relative overflow-hidden ${
-        isHighlighted ? 'border-blue-300 ring-1 ring-blue-500/10' : ''
+        isHighlighted ? 'border-emerald-300 ring-1 ring-emerald-500/10' : ''
       }`}
     >
       <div className="flex items-start justify-between">
@@ -39,7 +39,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           <p className="text-xs font-semibold tracking-wider uppercase text-slate-500">{title}</p>
           <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{value}</p>
         </div>
-        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-blue-600 shrink-0">
+        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-emerald-600 shrink-0">
           {icon}
         </div>
       </div>

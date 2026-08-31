@@ -106,7 +106,7 @@ export const CompanyDataPage: React.FC<CompanyDataPageProps> = ({ onNavigateSett
                 onClick={() => setActiveSubTab('info')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeSubTab === 'info'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -117,7 +117,7 @@ export const CompanyDataPage: React.FC<CompanyDataPageProps> = ({ onNavigateSett
                 onClick={() => setActiveSubTab('address')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeSubTab === 'address'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -128,7 +128,7 @@ export const CompanyDataPage: React.FC<CompanyDataPageProps> = ({ onNavigateSett
                 onClick={() => setActiveSubTab('commercial')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeSubTab === 'commercial'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -298,7 +298,7 @@ export const CompanyDataPage: React.FC<CompanyDataPageProps> = ({ onNavigateSett
                   value={form.commercialNotes}
                   onChange={e => setForm({ ...form, commercialNotes: e.target.value })}
                   placeholder="Texto impresso no rodapé de propostas comerciais..."
-                  className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   disabled={!canEdit}
                 />
               </div>
@@ -312,7 +312,7 @@ export const CompanyDataPage: React.FC<CompanyDataPageProps> = ({ onNavigateSett
                   value={form.footerDisclaimer}
                   onChange={e => setForm({ ...form, footerDisclaimer: e.target.value })}
                   placeholder="Validade do orçamento: 7 dias corridos. Variação técnica de cor admitida até 10%..."
-                  className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   disabled={!canEdit}
                 />
               </div>
