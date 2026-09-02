@@ -8,6 +8,9 @@ import { runFinishingsCompatibilityTests } from './finishings-compatibility.test
 import { runPdfExportTests } from './pdf-export.test';
 import { runAccessibilityResponsiveTests } from './accessibility-responsive.test';
 import { runAuthFoundationTests } from './auth.test';
+import { ssoIntegrationTests } from './sso-integration.test';
+import { persistenceIntegrationTests } from './persistence-integration.test';
+import { canonicalPermissionsMatrixTests } from './canonical-permissions-matrix.test';
 
 async function main() {
   console.log('====================================');
@@ -25,6 +28,42 @@ async function main() {
   const a11yResponsive = runAccessibilityResponsiveTests();
   const auth = runAuthFoundationTests();
 
+  const ssoResults = await Promise.all(
+    ssoIntegrationTests.map(async (tc) => {
+      const res = await tc.run();
+      return {
+        suiteName: 'Integração SSO Prexyon (Etapa 3.2)',
+        testName: `${tc.num}. ${tc.name}`,
+        passed: res.passed,
+        error: res.error,
+      };
+    })
+  );
+
+  const persistenceResults = await Promise.all(
+    persistenceIntegrationTests.map(async (tc) => {
+      const res = await tc.run();
+      return {
+        suiteName: 'Persistência Supabase & Concorrência (Fase 16)',
+        testName: `${tc.num}. ${tc.name}`,
+        passed: res.passed,
+        error: res.error,
+      };
+    })
+  );
+
+  const matrixResults = await Promise.all(
+    canonicalPermissionsMatrixTests.map(async (tc) => {
+      const res = await tc.run();
+      return {
+        suiteName: 'Matriz Canônica de Permissões (Prexyon -> OrçaGraf)',
+        testName: `${tc.num}. ${tc.name}`,
+        passed: res.passed,
+        error: res.error,
+      };
+    })
+  );
+
   const results = [
     ...domain.results,
     ...prexyon,
@@ -36,6 +75,9 @@ async function main() {
     ...pdfExport,
     ...a11yResponsive,
     ...auth,
+    ...ssoResults,
+    ...persistenceResults,
+    ...matrixResults,
   ];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;

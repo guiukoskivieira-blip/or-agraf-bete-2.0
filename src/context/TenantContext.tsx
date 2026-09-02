@@ -4,7 +4,7 @@
  * @project OrçaGraf
  */
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import {
   Company,
   User,
@@ -24,6 +24,16 @@ import {
   hasUserPermission,
 } from '../types/tenant';
 import { WhatsAppIntegrationService } from '../services/whatsapp-integration.service';
+import { useAuth } from './AuthContext';
+import { tenantBootstrapService } from '../services/tenant-bootstrap.service';
+
+function useOptionalAuth() {
+  try {
+    return useAuth();
+  } catch {
+    return null;
+  }
+}
 
 export const INITIAL_COMPANIES: Company[] = [
   {
@@ -226,6 +236,12 @@ interface TenantContextValue {
   terminateUserSession: (userId: string) => { success: boolean; error?: string };
   checkPermission: (module: PermissionModule, action: PermissionAction) => boolean;
 
+  // Status e Diagnóstico Autoritativo de Tenant
+  tenantStatus: 'LOADING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'UNAUTHENTICATED' | 'ERROR';
+  tenantError?: string;
+  setRealTenantFromSso: (organizationId: string) => Promise<void>;
+  reloadTenantBootstrap: () => Promise<void>;
+
   // Alternância controlada de teste/simulação
   switchUser: (userId: string) => void;
 }
@@ -233,10 +249,21 @@ interface TenantContextValue {
 const TenantContext = createContext<TenantContextValue | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const auth = useOptionalAuth();
+
   const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
   const [currentCompanyId, setCurrentCompanyId] = useState<string>('emp_alphaprint_01');
   const [usersMap, setUsersMap] = useState<Record<string, User[]>>(INITIAL_USERS_MAP);
   const [currentUserId, setCurrentUserId] = useState<string>('usr_owner_01');
+  const [preferredOrgId, setPreferredOrgId] = useState<string | undefined>();
+
+  const [realUser, setRealUser] = useState<User | null>(null);
+  const [realCompany, setRealCompany] = useState<Company | null>(null);
+  const [tenantStatus, setTenantStatus] = useState<'LOADING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'UNAUTHENTICATED' | 'ERROR'>(
+    auth?.isModeConnected ? 'LOADING' : 'AUTHORIZED'
+  );
+  const [tenantError, setTenantError] = useState<string | undefined>();
+
   const [auditLogs, setAuditLogs] = useState<PermissionAuditLog[]>([
     {
       id: 'log_init_01',
@@ -251,20 +278,96 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     },
   ]);
 
-  const currentCompany = companies.find(c => c.id === currentCompanyId) || companies[0];
-  const companyUsers = usersMap[currentCompanyId] || [];
-  const currentUser = companyUsers.find(u => u.id === currentUserId) || companyUsers[0] || {
-    id: 'usr_fallback',
-    tenantId: currentCompanyId,
-    name: 'Administrador',
-    email: 'admin@alphaprint.com.br',
-    role: 'admin',
-    baseProfile: 'admin',
-    permissions: ADMIN_PERMISSIONS,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const loadAuthoritativeTenant = useCallback(async (userId: string, userEmail: string, orgId?: string) => {
+    setTenantStatus('LOADING');
+    setTenantError(undefined);
+    try {
+      const res = await tenantBootstrapService.bootstrapUserTenant(userId, userEmail, orgId);
+      if (res.status === 'AUTHORIZED' && res.user && res.company) {
+        setRealUser(res.user);
+        setRealCompany(res.company);
+        setCurrentCompanyId(res.company.id);
+        setCurrentUserId(res.user.id);
+        setTenantStatus('AUTHORIZED');
+        setTenantError(undefined);
+      } else {
+        setRealUser(null);
+        setRealCompany(null);
+        setTenantStatus(res.status);
+        setTenantError(res.error || 'Acesso negado à organização.');
+      }
+    } catch (err: unknown) {
+      setRealUser(null);
+      setRealCompany(null);
+      setTenantStatus('ERROR');
+      setTenantError(err instanceof Error ? err.message : 'Erro ao inicializar tenant.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!auth?.isModeConnected) {
+      setTenantStatus('AUTHORIZED');
+      setTenantError(undefined);
+      return;
+    }
+
+    if (auth.loading) {
+      setTenantStatus('LOADING');
+      return;
+    }
+
+    if (!auth.user) {
+      // Logout / ausência de sessão: limpa estado real
+      setRealUser(null);
+      setRealCompany(null);
+      setTenantStatus('UNAUTHENTICATED');
+      setTenantError(undefined);
+      return;
+    }
+
+    loadAuthoritativeTenant(auth.user.id, auth.user.email || '', preferredOrgId);
+  }, [auth?.isModeConnected, auth?.loading, auth?.user, preferredOrgId, loadAuthoritativeTenant]);
+
+  const setRealTenantFromSso = useCallback(
+    async (organizationId: string) => {
+      setPreferredOrgId(organizationId);
+      if (auth?.user) {
+        await loadAuthoritativeTenant(auth.user.id, auth.user.email || '', organizationId);
+      }
+    },
+    [auth?.user, loadAuthoritativeTenant]
+  );
+
+  const reloadTenantBootstrap = useCallback(async () => {
+    if (auth?.user) {
+      await loadAuthoritativeTenant(auth.user.id, auth.user.email || '', preferredOrgId);
+    }
+  }, [auth?.user, preferredOrgId, loadAuthoritativeTenant]);
+
+  const isReal = Boolean(auth?.isModeConnected && realCompany && realUser && tenantStatus === 'AUTHORIZED');
+
+  const currentCompany: Company = isReal
+    ? realCompany!
+    : companies.find(c => c.id === currentCompanyId) || companies[0];
+
+  const effectiveTenantId = currentCompany.id;
+
+  const companyUsers = isReal ? [realUser!] : usersMap[effectiveTenantId] || [];
+
+  const currentUser: User = isReal
+    ? realUser!
+    : companyUsers.find(u => u.id === currentUserId) || companyUsers[0] || {
+        id: 'usr_fallback',
+        tenantId: effectiveTenantId,
+        name: 'Administrador',
+        email: 'admin@alphaprint.com.br',
+        role: 'admin',
+        baseProfile: 'admin',
+        permissions: ADMIN_PERMISSIONS,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
   const addAuditLog = (
     targetUser: User,
@@ -587,7 +690,11 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         currentUser,
         companyUsers,
         auditLogs,
-        availableCompanies: companies,
+        availableCompanies: isReal ? [realCompany!] : companies,
+        tenantStatus,
+        tenantError,
+        setRealTenantFromSso,
+        reloadTenantBootstrap,
         updateCompanySettings,
         updateWhatsAppConfig,
         testWhatsAppConnection,

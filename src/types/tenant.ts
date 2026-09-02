@@ -46,7 +46,7 @@ export type BaseProfile =
   | 'manager'     // Gestor
   | 'custom';     // Personalizado
 
-export type UserRole = 'owner' | 'admin' | 'sales' | 'reception' | 'production' | 'manager' | 'custom';
+export type UserRole = 'owner' | 'admin' | 'sales' | 'reception' | 'production' | 'manager' | 'custom' | 'member';
 
 export type UserPermissions = Record<PermissionModule, PermissionAction[]>;
 
@@ -345,7 +345,7 @@ export interface Company {
   settings: {
     currency: string; // 'BRL'
   };
-  dataOrigin?: 'demo' | 'user';
+  dataOrigin?: 'demo' | 'user' | 'real';
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }
@@ -361,7 +361,7 @@ export interface User {
   avatarUrl?: string; // Foto de perfil do usuário (Base64 ou URL segura)
   isActive: boolean;
   isLocked?: boolean;
-  dataOrigin?: 'demo' | 'user';
+  dataOrigin?: 'demo' | 'user' | 'real';
   lastLoginAt?: string;
   sessionTerminatedAt?: string;
   createdAt: string;

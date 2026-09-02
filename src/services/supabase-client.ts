@@ -18,22 +18,23 @@ export interface SupabaseConfig {
  * Avalia as variáveis de ambiente e determina se o modo autenticado está habilitado e configurado.
  */
 export function getSupabaseConfig(
-  env: Record<string, unknown> = import.meta.env
+  env: Record<string, unknown> = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {})
 ): SupabaseConfig {
-  const mode = String(env.VITE_PREXYON_MODE || '').trim().toLowerCase();
+  const safeEnv = env || {};
+  const mode = String(safeEnv.VITE_PREXYON_MODE || '').trim().toLowerCase();
   const isModeConnected = mode === 'connected' || mode === 'platform';
 
-  const supabaseUrl = typeof env.VITE_SUPABASE_URL === 'string' ? env.VITE_SUPABASE_URL.trim() : '';
+  const supabaseUrl = typeof safeEnv.VITE_SUPABASE_URL === 'string' ? safeEnv.VITE_SUPABASE_URL.trim() : '';
   const supabaseAnonKey =
-    typeof env.VITE_SUPABASE_PUBLISHABLE_KEY === 'string' && env.VITE_SUPABASE_PUBLISHABLE_KEY.trim() !== ''
-      ? env.VITE_SUPABASE_PUBLISHABLE_KEY.trim()
-      : typeof env.VITE_SUPABASE_ANON_KEY === 'string'
-        ? env.VITE_SUPABASE_ANON_KEY.trim()
+    typeof safeEnv.VITE_SUPABASE_PUBLISHABLE_KEY === 'string' && safeEnv.VITE_SUPABASE_PUBLISHABLE_KEY.trim() !== ''
+      ? safeEnv.VITE_SUPABASE_PUBLISHABLE_KEY.trim()
+      : typeof safeEnv.VITE_SUPABASE_ANON_KEY === 'string'
+        ? safeEnv.VITE_SUPABASE_ANON_KEY.trim()
         : '';
 
   const redirectUrl =
-    typeof env.VITE_AUTH_REDIRECT_URL === 'string' && env.VITE_AUTH_REDIRECT_URL.trim() !== ''
-      ? env.VITE_AUTH_REDIRECT_URL.trim()
+    typeof safeEnv.VITE_AUTH_REDIRECT_URL === 'string' && safeEnv.VITE_AUTH_REDIRECT_URL.trim() !== ''
+      ? safeEnv.VITE_AUTH_REDIRECT_URL.trim()
       : undefined;
 
   let isValidUrl = false;
@@ -64,7 +65,7 @@ let clientInstance: SupabaseClient | null = null;
  * Retorna null caso as credenciais públicas mínimas não estejam configuradas.
  */
 export function getSupabaseClient(
-  env: Record<string, unknown> = import.meta.env
+  env: Record<string, unknown> = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {})
 ): SupabaseClient | null {
   const config = getSupabaseConfig(env);
 
@@ -90,4 +91,12 @@ export function getSupabaseClient(
  */
 export function resetSupabaseClient(): void {
   clientInstance = null;
+}
+
+export function isModeConnected(env?: Record<string, unknown>): boolean {
+  return getSupabaseConfig(env).isModeConnected;
+}
+
+export function isSupabaseConfigured(env?: Record<string, unknown>): boolean {
+  return getSupabaseConfig(env).isConfigured;
 }

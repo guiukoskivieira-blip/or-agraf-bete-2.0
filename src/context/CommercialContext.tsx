@@ -44,6 +44,9 @@ import {
   CustomerUpdateInput,
   sanitizeDocument,
 } from '../domain/customer-repository';
+import { quoteRepository } from '../repositories/quote.repository';
+import { productRepository } from '../repositories/product.repository';
+import { isModeConnected, isSupabaseConfigured } from '../services/supabase-client';
 
 export const INITIAL_QUOTES: Quote[] = [
   {
@@ -335,6 +338,11 @@ interface CommercialContextValue {
     customMessage?: string,
     phone?: string
   ) => { success: boolean; messageUrl?: string; error?: string };
+
+  // Estados de Carregamento e Servidor Real
+  isLoadingCommercial: boolean;
+  commercialError: string | null;
+  reloadCommercialData: () => Promise<void>;
 }
 
 const CommercialContext = createContext<CommercialContextValue | undefined>(undefined);
@@ -343,29 +351,78 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   const { tenantId, currentCompany, currentUser, checkPermission } = useTenant();
   const { showNotice } = useNotification();
 
-  const [quotesList, setQuotesList] = useState<Quote[]>(INITIAL_QUOTES);
+  const [isLoadingCommercial, setIsLoadingCommercial] = useState<boolean>(() => isModeConnected);
+  const [commercialError, setCommercialError] = useState<string | null>(null);
+
+  const [quotesList, setQuotesList] = useState<Quote[]>(() => (isModeConnected ? [] : INITIAL_QUOTES));
   const approvedQuoteIdsRef = useRef<Set<string>>(new Set());
   
-  // Produtos por Tenant (Inicialização Idempotente dos 15 produtos oficiais)
+  // Produtos por Tenant (Inicialização Idempotente)
   const [allProducts, setAllProducts] = useState<Product[]>(() => {
-    return getInitialProductsTemplate('emp_alphaprint_01');
+    return isModeConnected ? [] : getInitialProductsTemplate('emp_alphaprint_01');
   });
 
-  // Insumos por Tenant (Inicialização Idempotente dos 21 insumos oficiais)
+  // Insumos por Tenant
   const [allMaterials, setAllMaterials] = useState<Material[]>(() => {
-    return getInitialMaterialsTemplate('emp_alphaprint_01');
+    return isModeConnected ? [] : getInitialMaterialsTemplate('emp_alphaprint_01');
   });
 
-  // Acabamentos por Tenant (Inicialização Idempotente dos 20 acabamentos oficiais)
+  // Acabamentos por Tenant
   const [allFinishings, setAllFinishings] = useState<Finishing[]>(() => {
-    return getInitialFinishingsTemplate('emp_alphaprint_01');
+    return isModeConnected ? [] : getInitialFinishingsTemplate('emp_alphaprint_01');
   });
 
-  // Garante que o tenant atual tenha seus produtos, insumos e acabamentos inicializados
+  // Clientes por Tenant (com suporte a reatividade e persistência isolada)
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
+
+  const reloadCommercialData = useCallback(async () => {
+    if (!tenantId) return;
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      setIsLoadingCommercial(true);
+      setCommercialError(null);
+      try {
+        const [loadedQuotes, loadedProds, loadedMats, loadedFins, loadedCusts] = await Promise.all([
+          quoteRepository.listQuotes(tenantId),
+          productRepository.listProducts(tenantId),
+          productRepository.listMaterials(tenantId),
+          productRepository.listFinishings(tenantId),
+          customerRepository.list(tenantId),
+        ]);
+        setQuotesList(loadedQuotes);
+        setAllProducts(loadedProds);
+        setAllMaterials(loadedMats);
+        setAllFinishings(loadedFins);
+        setCustomersList(loadedCusts);
+      } catch (err: any) {
+        console.error('[CommercialContext] Erro ao carregar dados do Supabase:', err);
+        setCommercialError(err?.message || 'Erro ao carregar dados comerciais do servidor.');
+        // FAIL-CLOSED: Não restaura dados seed em modo conectado
+        setQuotesList([]);
+        setAllProducts([]);
+        setAllMaterials([]);
+        setAllFinishings([]);
+        setCustomersList([]);
+      } finally {
+        setIsLoadingCommercial(false);
+      }
+    } else {
+      // Modo Standalone: inicialização template local
+      setAllProducts(prev => initializeTenantProducts(prev, tenantId));
+      setAllMaterials(prev => initializeTenantMaterials(prev, tenantId));
+      setAllFinishings(prev => initializeTenantFinishings(prev, tenantId));
+      const custs = await customerRepository.list(tenantId);
+      setCustomersList(custs);
+    }
+  }, [tenantId]);
+
   useEffect(() => {
-    setAllProducts(prev => initializeTenantProducts(prev, tenantId));
-    setAllMaterials(prev => initializeTenantMaterials(prev, tenantId));
-    setAllFinishings(prev => initializeTenantFinishings(prev, tenantId));
+    reloadCommercialData();
+  }, [reloadCommercialData]);
+
+  const reloadCustomers = useCallback(async () => {
+    const list = await customerRepository.list(tenantId);
+    setCustomersList(list);
   }, [tenantId]);
 
   // Produtos exclusivos do tenant atual
@@ -382,18 +439,6 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
   const tenantFinishings = useMemo(() => {
     return allFinishings.filter(f => f.tenantId === tenantId);
   }, [allFinishings, tenantId]);
-
-  // Clientes por Tenant (com suporte a reatividade e persistência isolada)
-  const [customersList, setCustomersList] = useState<Customer[]>([]);
-
-  const reloadCustomers = useCallback(async () => {
-    const list = await customerRepository.list(tenantId);
-    setCustomersList(list);
-  }, [tenantId]);
-
-  useEffect(() => {
-    reloadCustomers();
-  }, [reloadCustomers]);
 
   const createCustomer = async (
     data: CustomerCreateInput
@@ -500,6 +545,24 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     setAllProducts(prev => [newProduct, ...prev]);
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository
+        .createProduct(tenantId, newProduct)
+        .then(res => {
+          if (res.success && res.product) {
+            setAllProducts(prev => prev.map(p => (p.id === newProduct.id ? res.product! : p)));
+          } else if (res.error) {
+            showNotice('Erro ao Salvar Produto', res.error, 'error');
+            setAllProducts(prev => prev.filter(p => p.id !== newProduct.id));
+          }
+        })
+        .catch(err => {
+          showNotice('Falha de Rede', err.message, 'error');
+          setAllProducts(prev => prev.filter(p => p.id !== newProduct.id));
+        });
+    }
+
     showNotice('Produto Cadastrado', `${newProduct.name} adicionado ao catálogo com sucesso!`, 'success');
     return newProduct;
   };
@@ -527,6 +590,13 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
 
     if (updated) {
       showNotice('Produto Atualizado', `As configurações de ${(updated as Product).name} foram salvas.`, 'success');
+      if (isModeConnected && isSupabaseConfigured()) {
+        productRepository.updateProduct(tenantId, id, data).then(res => {
+          if (res.error) {
+            showNotice('Erro ao Salvar no Servidor', res.error, 'error');
+          }
+        });
+      }
     }
     return updated;
   };
@@ -545,6 +615,11 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
         return p;
       })
     );
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.updateProduct(tenantId, id, { isActive: newState });
+    }
+
     showNotice(
       newState ? 'Produto Ativado' : 'Produto Desativado',
       `${prodName} foi ${newState ? 'ativado para novos orçamentos' : 'desativado do catálogo'}.`,
@@ -569,6 +644,15 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     setAllProducts(prev => [cloned, ...prev]);
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.createProduct(tenantId, cloned).then(res => {
+        if (res.success && res.product) {
+          setAllProducts(prev => prev.map(p => (p.id === cloned.id ? res.product! : p)));
+        }
+      });
+    }
+
     showNotice('Produto Duplicado', `Cópia criada: ${cloned.name}`, 'success');
     return cloned;
   };
@@ -594,6 +678,15 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     }
 
     setAllProducts(prev => prev.filter(p => !(p.id === id && p.tenantId === tenantId)));
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.deleteProduct(tenantId, id).then(res => {
+        if (res.error) {
+          showNotice('Erro ao Excluir no Servidor', res.error, 'error');
+        }
+      });
+    }
+
     showNotice('Produto Removido', `O item "${target.name}" foi excluído permanentemente do catálogo.`, 'info');
     return { success: true, message: 'Produto removido com sucesso.' };
   };
@@ -617,6 +710,24 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       updatedAt: now,
     };
     setAllMaterials(prev => [newMat, ...prev]);
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository
+        .createMaterial(tenantId, newMat)
+        .then(res => {
+          if (res.success && res.material) {
+            setAllMaterials(prev => prev.map(m => (m.id === newMat.id ? res.material! : m)));
+          } else if (res.error) {
+            showNotice('Erro ao Salvar Insumo', res.error, 'error');
+            setAllMaterials(prev => prev.filter(m => m.id !== newMat.id));
+          }
+        })
+        .catch(err => {
+          showNotice('Falha de Rede', err.message, 'error');
+          setAllMaterials(prev => prev.filter(m => m.id !== newMat.id));
+        });
+    }
+
     showNotice('Insumo Cadastrado', `${newMat.name} adicionado com sucesso.`, 'success');
     return newMat;
   };
@@ -635,6 +746,13 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     );
     if (updated) {
       showNotice('Insumo Atualizado', `${(updated as Material).name} atualizado.`, 'success');
+      if (isModeConnected && isSupabaseConfigured()) {
+        productRepository.updateMaterial(tenantId, id, data).then(res => {
+          if (res.error) {
+            showNotice('Erro ao Atualizar no Servidor', res.error, 'error');
+          }
+        });
+      }
     }
     return updated;
   };
@@ -652,6 +770,11 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
         return m;
       })
     );
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.updateMaterial(tenantId, id, { isActive: newState });
+    }
+
     showNotice(
       newState ? 'Insumo Ativado' : 'Insumo Desativado',
       `${name} foi ${newState ? 'ativado' : 'desativado'}.`,
@@ -662,6 +785,13 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const deleteMaterial = (id: string): boolean => {
     setAllMaterials(prev => prev.filter(m => !(m.id === id && m.tenantId === tenantId)));
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.deleteMaterial(tenantId, id).then(res => {
+        if (res.error) {
+          showNotice('Erro ao Excluir no Servidor', res.error, 'error');
+        }
+      });
+    }
     showNotice('Insumo Removido', 'Insumo excluído do catálogo.', 'info');
     return true;
   };
@@ -702,6 +832,24 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       updatedAt: now,
     };
     setAllFinishings(prev => [newFin, ...prev]);
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository
+        .createFinishing(tenantId, newFin)
+        .then(res => {
+          if (res.success && res.finishing) {
+            setAllFinishings(prev => prev.map(f => (f.id === newFin.id ? res.finishing! : f)));
+          } else if (res.error) {
+            showNotice('Erro ao Salvar Acabamento', res.error, 'error');
+            setAllFinishings(prev => prev.filter(f => f.id !== newFin.id));
+          }
+        })
+        .catch(err => {
+          showNotice('Falha de Rede', err.message, 'error');
+          setAllFinishings(prev => prev.filter(f => f.id !== newFin.id));
+        });
+    }
+
     showNotice('Acabamento Cadastrado', `${newFin.name} adicionado ao catálogo.`, 'success');
     return newFin;
   };
@@ -738,6 +886,13 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     );
     if (updated) {
       showNotice('Acabamento Atualizado', `${(updated as Finishing).name} atualizado.`, 'success');
+      if (isModeConnected && isSupabaseConfigured()) {
+        productRepository.updateFinishing(tenantId, id, data).then(res => {
+          if (res.error) {
+            showNotice('Erro ao Atualizar no Servidor', res.error, 'error');
+          }
+        });
+      }
     }
     return updated;
   };
@@ -755,6 +910,11 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
         return f;
       })
     );
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.updateFinishing(tenantId, id, { isActive: newState });
+    }
+
     showNotice(
       newState ? 'Acabamento Ativado' : 'Acabamento Desativado',
       `${name} foi ${newState ? 'ativado' : 'desativado'}.`,
@@ -765,6 +925,13 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const deleteFinishing = (id: string): boolean => {
     setAllFinishings(prev => prev.filter(f => !(f.id === id && f.tenantId === tenantId)));
+    if (isModeConnected && isSupabaseConfigured()) {
+      productRepository.deleteFinishing(tenantId, id).then(res => {
+        if (res.error) {
+          showNotice('Erro ao Excluir no Servidor', res.error, 'error');
+        }
+      });
+    }
     showNotice('Acabamento Removido', 'Acabamento excluído do catálogo.', 'info');
     return true;
   };
@@ -866,7 +1033,27 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     setQuotesList(prev => [newQuote, ...prev]);
-    showNotice('Orçamento Criado', `Proposta ${quoteNum} salva e pronta para envio!`, 'success');
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      quoteRepository
+        .createQuote(tenantId, newQuote, items)
+        .then(res => {
+          if (res.success && res.quote) {
+            setQuotesList(prev => prev.map(q => (q.id === newQuote.id ? res.quote! : q)));
+            showNotice('Orçamento Emitido', `Proposta ${res.quote.quoteNumber} salva no servidor com sucesso!`, 'success');
+          } else if (res.error) {
+            showNotice('Erro ao Salvar no Servidor', res.error, 'error');
+            setQuotesList(prev => prev.filter(q => q.id !== newQuote.id));
+          }
+        })
+        .catch(err => {
+          showNotice('Falha de Rede', err.message || 'Erro ao comunicar com o servidor.', 'error');
+          setQuotesList(prev => prev.filter(q => q.id !== newQuote.id));
+        });
+    } else {
+      showNotice('Orçamento Criado', `Proposta ${quoteNum} salva e pronta para envio!`, 'success');
+    }
+
     return newQuote;
   };
 
@@ -915,6 +1102,16 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
 
     if (updated) {
       showNotice('Orçamento Atualizado', `Alterações salvas com sucesso.`, 'success');
+      if (isModeConnected && isSupabaseConfigured()) {
+        const expectedVer = (updated as Quote).currentVersion || 1;
+        quoteRepository
+          .updateQuote(tenantId, quoteId, expectedVer, updated, (updated as Quote).items)
+          .then(res => {
+            if (res.error) {
+              showNotice('Erro ao Atualizar no Servidor', res.error, 'error');
+            }
+          });
+      }
     }
     return updated;
   };
@@ -1049,6 +1246,16 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       })
     );
 
+    if (isModeConnected && isSupabaseConfigured()) {
+      quoteRepository
+        .approveQuote(tenantId, quoteId, 'Aprovado via interface comercial')
+        .then(res => {
+          if (res.error) {
+            showNotice('Erro ao Salvar Aprovação', res.error, 'error');
+          }
+        });
+    }
+
     showNotice(
       'Orçamento Aprovado',
       'Orçamento aprovado comercialmente com sucesso!',
@@ -1084,6 +1291,14 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
         };
       })
     );
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      quoteRepository.rejectQuote(tenantId, quoteId, reason).then(res => {
+        if (res.error) {
+          showNotice('Erro ao Salvar Recusa', res.error, 'error');
+        }
+      });
+    }
 
     showNotice('Orçamento Recusado', `Status atualizado para Recusado.`, 'info');
     return true;
@@ -1204,6 +1419,9 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
         rejectQuote,
         downloadQuotePdf,
         sendQuoteViaWhatsApp,
+        isLoadingCommercial,
+        commercialError,
+        reloadCommercialData,
       }}
     >
       {children}

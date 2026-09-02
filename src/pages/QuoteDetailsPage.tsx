@@ -165,12 +165,20 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
   };
 
   const handleOpenApproveModal = () => {
+    if (!canApprove) {
+      showNotice('Acesso Negado', 'Seu perfil de usuário não possui permissão para aprovar orçamentos.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setIsConfirmApproveModalOpen(true);
   };
 
   const handleConfirmApprove = () => {
     if (isApproving) return;
+    if (!canApprove) {
+      showNotice('Operação Bloqueada', 'Usuário sem permissão comercial para aprovar orçamentos.', 'error');
+      return;
+    }
     setIsApproving(true);
     try {
       approveQuote(quote.id);

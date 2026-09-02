@@ -277,15 +277,31 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
   const [financialNotes, setFinancialNotes] = useState('');
 
   // ==========================================
-  // 5. VENDEDOR E COMISSÃO — OPCIONAL (AO FINAL DO FORMULÁRIO)
+  // 5. VENDEDOR E COMISSÃO — POLÍTICA ANTI-FORJAMENTO
   // ==========================================
-  // Lista de usuários ativos da empresa atual (strict tenant isolation)
-  const activeSellers = useMemo(() => {
-    return companyUsers.filter(u => u.tenantId === currentCompany.id && u.isActive);
-  }, [companyUsers, currentCompany.id]);
+  const isAdministrator = useMemo(() => {
+    return (
+      currentUser?.role === 'owner' ||
+      currentUser?.role === 'admin' ||
+      currentUser?.baseProfile === 'admin' ||
+      hasUserPermission(currentUser, 'users_permissions', 'edit')
+    );
+  }, [currentUser]);
 
-  // Vendedor opcional: inicializa vazio (null) sem preenchimento automático forçado
-  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  // Lista de usuários ativos da empresa atual (strict tenant isolation)
+  // Administradores podem selecionar qualquer vendedor; Membro comum fica vinculado a si mesmo
+  const activeSellers = useMemo(() => {
+    const orgSellers = companyUsers.filter(u => u.tenantId === currentCompany.id && u.isActive);
+    if (isAdministrator) {
+      return orgSellers;
+    }
+    return orgSellers.filter(u => u.id === currentUser?.id);
+  }, [companyUsers, currentCompany.id, isAdministrator, currentUser?.id]);
+
+  // Vendedor opcional: inicializa com currentUser se for membro comum, ou null se admin
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(() => {
+    return !isAdministrator && currentUser?.id ? currentUser.id : null;
+  });
   const [sellerSearchTerm, setSellerSearchTerm] = useState('');
   const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
   const sellerDropdownRef = useRef<HTMLDivElement>(null);
@@ -1009,10 +1025,10 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       customerContact: customerContact.trim() || undefined,
       customerDocument: customerDocument.trim() || undefined,
       customerEmail: customerEmail.trim() || undefined,
-      sellerId: selectedSeller ? selectedSeller.id : null,
-      sellerName: selectedSeller ? selectedSeller.name : null,
-      salespersonId: selectedSeller ? selectedSeller.id : null,
-      salespersonName: selectedSeller ? selectedSeller.name : null,
+      sellerId: isAdministrator ? (selectedSeller ? selectedSeller.id : null) : (currentUser?.id || null),
+      sellerName: isAdministrator ? (selectedSeller ? selectedSeller.name : null) : (currentUser?.name || null),
+      salespersonId: isAdministrator ? (selectedSeller ? selectedSeller.id : null) : (currentUser?.id || null),
+      salespersonName: isAdministrator ? (selectedSeller ? selectedSeller.name : null) : (currentUser?.name || null),
       commissionRatePercent: parsedCommissionRate,
       commissionAmountCents: parsedCommissionAmount,
       items: formattedItems,

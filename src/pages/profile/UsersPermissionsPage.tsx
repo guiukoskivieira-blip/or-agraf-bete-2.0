@@ -89,6 +89,10 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
   }, [tenantUsers, searchTerm]);
 
   const handleStartCreateUser = () => {
+    if (!isAdministrator) {
+      showNotice('Acesso Negado', 'Seu perfil não possui permissão para cadastrar novos usuários.', 'error');
+      return;
+    }
     setFormUserData({
       name: '',
       email: '',
@@ -100,6 +104,10 @@ export const UsersPermissionsPage: React.FC<UsersPermissionsPageProps> = ({ onNa
   };
 
   const handleStartEditUser = (user: User) => {
+    if (!isAdministrator) {
+      showNotice('Acesso Negado', 'Seu perfil não possui permissão para editar usuários ou permissões.', 'error');
+      return;
+    }
     setSelectedUserForEdit(user);
     setFormUserData({
       name: user.name,

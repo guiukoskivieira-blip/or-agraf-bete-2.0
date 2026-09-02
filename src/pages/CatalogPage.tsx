@@ -78,6 +78,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   } = useCommercial();
 
   const { showNotice } = useNotification();
+  const { currentUser, checkPermission } = useTenant();
+
+  const canManagePricing =
+    currentUser.role === 'owner' ||
+    currentUser.role === 'admin' ||
+    checkPermission('products', 'edit');
 
   const [activeTab, setActiveTab] = useState<CatalogTab>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
@@ -261,6 +267,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   // PRODUTOS HANDLERS
   // ==========================================
   const handleOpenCreateProduct = () => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil não possui permissão para cadastrar produtos no catálogo.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setEditingProduct(null);
     setProductForm({
@@ -280,6 +290,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleOpenEditProduct = (p: Product) => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil não possui permissão para editar produtos ou alterar preços.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setEditingProduct(p);
     const mode = p.pricingMode || inferPricingMode(p);
@@ -307,6 +321,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManagePricing) {
+      showNotice('Operação Bloqueada', 'Usuário sem permissão comercial para alterar catálogo ou precificação.', 'error');
+      return;
+    }
     if (!productForm.name.trim()) {
       showNotice('Campo Obrigatório', 'Informe o nome do produto.', 'warning');
       return;
@@ -365,6 +383,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleDeleteProduct = (p: Product) => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil de acesso não possui permissão para excluir produtos.', 'error');
+      return;
+    }
     if (isProductUsedInQuotes(p.id)) {
       showNotice(
         'Bloqueio de Exclusão',
@@ -383,6 +405,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   // INSUMOS (MATERIAIS) HANDLERS
   // ==========================================
   const handleOpenCreateMaterial = () => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil de acesso não possui permissão para cadastrar insumos.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setEditingMaterial(null);
     setMaterialForm({
@@ -397,6 +423,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleOpenEditMaterial = (m: Material) => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil de acesso não possui permissão para editar insumos.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setEditingMaterial(m);
     setMaterialForm({
@@ -447,6 +477,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   // ACABAMENTOS HANDLERS
   // ==========================================
   const handleOpenCreateFinishing = () => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil de acesso não possui permissão para cadastrar acabamentos.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setEditingFinishing(null);
     setProductSearchInModal('');
@@ -466,6 +500,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   };
 
   const handleOpenEditFinishing = (f: Finishing) => {
+    if (!canManagePricing) {
+      showNotice('Acesso Restrito', 'Seu perfil de acesso não possui permissão para editar acabamentos.', 'error');
+      return;
+    }
     triggerRef.current = document.activeElement as HTMLElement;
     setEditingFinishing(f);
     setProductSearchInModal('');
@@ -577,7 +615,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {activeTab === 'products' && (
+          {!canManagePricing && (
+            <span className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold rounded-xl">
+              Modo Somente Leitura
+            </span>
+          )}
+          {canManagePricing && activeTab === 'products' && (
             <Button
               variant="primary"
               icon={<PlusCircle className="w-4 h-4" />}
@@ -586,7 +629,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               Novo Produto
             </Button>
           )}
-          {activeTab === 'supplies' && (
+          {canManagePricing && activeTab === 'supplies' && (
             <Button
               variant="primary"
               icon={<PlusCircle className="w-4 h-4" />}
@@ -595,7 +638,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               Novo Insumo
             </Button>
           )}
-          {activeTab === 'finishes' && (
+          {canManagePricing && activeTab === 'finishes' && (
             <Button
               variant="primary"
               icon={<PlusCircle className="w-4 h-4" />}
@@ -773,39 +816,43 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       </Badge>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Duplicar Produto"
-                          icon={<Copy className="w-3.5 h-3.5" />}
-                          onClick={() => duplicateProduct(product.id)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Editar Produto"
-                          icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
-                          onClick={() => handleOpenEditProduct(product)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title={product.isActive ? 'Desativar' : 'Ativar'}
-                          className={product.isActive ? 'text-amber-600' : 'text-emerald-600'}
-                          onClick={() => toggleProductActive(product.id)}
-                        >
-                          {product.isActive ? 'Desativar' : 'Ativar'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Excluir"
-                          className="text-rose-600 hover:bg-rose-50"
-                          icon={<Trash2 className="w-3.5 h-3.5" />}
-                          onClick={() => handleDeleteProduct(product)}
-                        />
-                      </div>
+                      {canManagePricing ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Duplicar Produto"
+                            icon={<Copy className="w-3.5 h-3.5" />}
+                            onClick={() => duplicateProduct(product.id)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Editar Produto"
+                            icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
+                            onClick={() => handleOpenEditProduct(product)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={product.isActive ? 'Desativar' : 'Ativar'}
+                            className={product.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                            onClick={() => toggleProductActive(product.id)}
+                          >
+                            {product.isActive ? 'Desativar' : 'Ativar'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Excluir"
+                            className="text-rose-600 hover:bg-rose-50"
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => handleDeleteProduct(product)}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium italic">Somente leitura</span>
+                      )}
                     </td>
                   </tr>
                   );
@@ -859,29 +906,33 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       </Badge>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
-                          onClick={() => handleOpenEditMaterial(mat)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={mat.isActive ? 'text-amber-600' : 'text-emerald-600'}
-                          onClick={() => toggleMaterialActive(mat.id)}
-                        >
-                          {mat.isActive ? 'Desativar' : 'Ativar'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-rose-600 hover:bg-rose-50"
-                          icon={<Trash2 className="w-3.5 h-3.5" />}
-                          onClick={() => deleteMaterial(mat.id)}
-                        />
-                      </div>
+                      {canManagePricing ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
+                            onClick={() => handleOpenEditMaterial(mat)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={mat.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                            onClick={() => toggleMaterialActive(mat.id)}
+                          >
+                            {mat.isActive ? 'Desativar' : 'Ativar'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 hover:bg-rose-50"
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            onClick={() => deleteMaterial(mat.id)}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium italic">Somente leitura</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1017,29 +1068,33 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
-                            onClick={() => handleOpenEditFinishing(fin)}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={fin.isActive ? 'text-amber-600' : 'text-emerald-600'}
-                            onClick={() => toggleFinishingActive(fin.id)}
-                          >
-                            {fin.isActive ? 'Desativar' : 'Ativar'}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-rose-600 hover:bg-rose-50"
-                            icon={<Trash2 className="w-3.5 h-3.5" />}
-                            onClick={() => deleteFinishing(fin.id)}
-                          />
-                        </div>
+                        {canManagePricing ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={<Edit className="w-3.5 h-3.5 text-emerald-600" />}
+                              onClick={() => handleOpenEditFinishing(fin)}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={fin.isActive ? 'text-amber-600' : 'text-emerald-600'}
+                              onClick={() => toggleFinishingActive(fin.id)}
+                            >
+                              {fin.isActive ? 'Desativar' : 'Ativar'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-rose-600 hover:bg-rose-50"
+                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                              onClick={() => deleteFinishing(fin.id)}
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium italic">Somente leitura</span>
+                        )}
                       </td>
                     </tr>
                   );

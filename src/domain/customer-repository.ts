@@ -423,5 +423,5 @@ export class LocalStorageCustomerRepository implements ICustomerRepository {
   }
 }
 
-// Instância singleton padrão do repositório
-export const customerRepository = new LocalStorageCustomerRepository();
+// Instância singleton oficial do repositório (com suporte a Supabase PostgreSQL e RLS)
+export { customerRepository } from '../repositories/customer.repository';

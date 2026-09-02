@@ -1,11 +1,11 @@
 /**
  * @file LoginPage.tsx
- * @description Tela Oficial de Login Comercial do OrçaGraf (Supabase Auth)
+ * @description Tela Oficial de Login Comercial do OrçaGraf com Suporte a Login Único Prexyon
  * @project OrçaGraf
  */
 
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -36,6 +36,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
     await signInWithPassword(trimmedEmail, password);
   };
 
+  const handlePrexyonPortalRedirect = () => {
+    const portalUrl = import.meta.env.VITE_PREXYON_PORTAL_URL || 'https://prexyon-production.up.railway.app';
+    window.location.href = portalUrl;
+  };
+
   const displayError = clientError || authError;
 
   return (
@@ -56,6 +61,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
               Informe suas credenciais autorizadas para acessar o painel.
             </p>
+          </div>
+
+          {/* Opção Principal: Login Centralizado Prexyon */}
+          <div className="mb-5">
+            <button
+              type="button"
+              onClick={handlePrexyonPortalRedirect}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold flex items-center justify-between transition-all shadow-sm group"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
+                  P
+                </div>
+                <span>Entrar com Portal Prexyon</span>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <span className="relative bg-white px-3 text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                ou com credenciais diretas
+              </span>
+            </div>
           </div>
 
           {displayError && (
@@ -165,7 +196,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateForgotPassword }
                   )
                 }
               >
-                {loading ? 'Autenticando...' : 'Entrar no Sistema'}
+                {loading ? 'Autenticando...' : 'Entrar no OrçaGraf'}
               </Button>
             </div>
           </form>
