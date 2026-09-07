@@ -1,10 +1,10 @@
 /**
  * @file SsoCallbackPage.tsx
- * @description Página de Recepção do Login Único Prexyon com Limpeza Imediata de URL e Validação Server-Side
+ * @description Página de Recepção do Login Único Prexyon com Idempotência Estrita contra React StrictMode
  * @project OrçaGraf
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Loader2, AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { prexyonSsoClient, SsoExchangeResult } from '../../services/prexyon-sso-client';
 import { useTenant } from '../../context/TenantContext';
@@ -14,6 +14,36 @@ interface SsoCallbackPageProps {
   onNavigateLogin?: () => void;
 }
 
+interface InFlightExchange {
+  code: string;
+  promise: Promise<SsoExchangeResult>;
+  result?: SsoExchangeResult;
+}
+
+// Armazenamento em memória no nível de módulo para garantir idempotência estrita
+// durante ciclos de montagem/desmontagem do React StrictMode sem duplicar chamadas à Edge Function.
+let currentExchange: InFlightExchange | null = null;
+
+export function extractSsoCodeFromLocation(): string | null {
+  const searchParams = new URLSearchParams(window.location.search);
+  let code = searchParams.get('code');
+
+  if (!code && window.location.hash.includes('?')) {
+    const hashQuery = window.location.hash.split('?')[1];
+    const hashParams = new URLSearchParams(hashQuery);
+    code = hashParams.get('code');
+  }
+
+  return code ? code.trim() : null;
+}
+
+/**
+ * Utilitário para resetar o estado de troca em testes.
+ */
+export function resetCurrentExchangeForTesting(): void {
+  currentExchange = null;
+}
+
 export const SsoCallbackPage: React.FC<SsoCallbackPageProps> = ({
   onSuccess,
   onNavigateLogin,
@@ -21,59 +51,84 @@ export const SsoCallbackPage: React.FC<SsoCallbackPageProps> = ({
   const { updateCompanySettings, setRealTenantFromSso } = useTenant();
   const [loading, setLoading] = useState(true);
   const [errorResult, setErrorResult] = useState<SsoExchangeResult | null>(null);
-  const hasProcessedRef = useRef(false);
 
   useEffect(() => {
-    // Evita execução duplicada por React StrictMode ou re-renders
-    if (hasProcessedRef.current) return;
-    hasProcessedRef.current = true;
+    let isCancelled = false;
 
     const processSso = async () => {
-      // 1. Extrair código dos parâmetros de busca da URL ou do Hash
-      let code: string | null = null;
+      // 1. Capturar código da URL antes de qualquer higienização
+      const extractedCode = extractSsoCodeFromLocation();
 
-      const searchParams = new URLSearchParams(window.location.search);
-      code = searchParams.get('code');
+      if (extractedCode) {
+        // Higieniza a URL somente após capturar o código de forma segura
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
 
-      if (!code && window.location.hash.includes('?')) {
-        const hashQuery = window.location.hash.split('?')[1];
-        const hashParams = new URLSearchParams(hashQuery);
-        code = hashParams.get('code');
+        // Se ainda não houver troca em andamento para este código, inicia a chamada única
+        if (!currentExchange || currentExchange.code !== extractedCode) {
+          const exchangePromise = prexyonSsoClient.exchangeAndAuthenticate(extractedCode).then((res) => {
+            if (currentExchange && currentExchange.code === extractedCode) {
+              currentExchange.result = res;
+            }
+            return res;
+          });
+
+          currentExchange = {
+            code: extractedCode,
+            promise: exchangePromise,
+          };
+        }
       }
 
-      // 2. Limpeza Imediata da URL (Remove ?code=... do histórico e da barra de endereço)
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-
-      if (!code) {
-        setLoading(false);
-        setErrorResult({
-          success: false,
-          error: 'Código de autorização não encontrado ou já processado.',
-          errorCode: 'INVALID_CODE',
-        });
+      // 2. Se não encontrou código na URL e não há troca ativa anterior
+      if (!currentExchange) {
+        if (!isCancelled) {
+          setLoading(false);
+          setErrorResult({
+            success: false,
+            error: 'Código de autorização não encontrado.',
+            errorCode: 'INVALID_CODE',
+          });
+        }
         return;
       }
 
-      // 3. Executar troca server-side segura
-      const result = await prexyonSsoClient.exchangeAndAuthenticate(code);
+      // 3. Aguardar a resolução da troca única
+      try {
+        const result = currentExchange.result || (await currentExchange.promise);
 
-      if (result.success) {
-        // Se a Prexyon enviou uma organização específica, aplica autoritativamente no contexto real
-        if (result.organizationId && setRealTenantFromSso) {
-          await setRealTenantFromSso(result.organizationId);
-        } else if (result.organizationId) {
-          updateCompanySettings({ id: result.organizationId });
+        if (isCancelled) return;
+
+        if (result.success) {
+          // Aplica o tenant da organização de forma autoritativa no contexto
+          if (result.organizationId && setRealTenantFromSso) {
+            await setRealTenantFromSso(result.organizationId);
+          } else if (result.organizationId) {
+            updateCompanySettings({ id: result.organizationId });
+          }
+          setLoading(false);
+          onSuccess();
+        } else {
+          setLoading(false);
+          setErrorResult(result);
         }
-        setLoading(false);
-        onSuccess();
-      } else {
-        setLoading(false);
-        setErrorResult(result);
+      } catch (err: any) {
+        if (!isCancelled) {
+          setLoading(false);
+          setErrorResult({
+            success: false,
+            error: err?.message || 'Erro inesperado ao processar login com Prexyon.',
+            errorCode: 'NETWORK_ERROR',
+          });
+        }
       }
     };
 
     processSso();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [onSuccess, updateCompanySettings, setRealTenantFromSso]);
 
   const handleReturnToPrexyon = () => {

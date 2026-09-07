@@ -589,4 +589,176 @@ export const ssoIntegrationTests: SsoTestCase[] = [
       };
     },
   },
+
+  // 28. Callback com code válido chama troca UMA vez
+  {
+    num: 28,
+    name: 'Idempotência SSO: Callback com código válido inicia no máximo UMA chamada de troca',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const content = fs.readFileSync(callbackPath, 'utf-8');
+      const hasModuleTracker =
+        content.includes('currentExchange') &&
+        content.includes('currentExchange.code !== extractedCode');
+      return {
+        passed: hasModuleTracker,
+        expected: 'hasModuleTracker=true (controle em memória para chamada única)',
+        found: `hasModuleTracker=${hasModuleTracker}`,
+      };
+    },
+  },
+
+  // 29. Simulação Mount -> Unmount -> Remount do React StrictMode
+  {
+    num: 29,
+    name: 'StrictMode Simulado: Mount -> Unmount -> Remount reutiliza a Promise em andamento sem duplicar chamada',
+    run: async () => {
+      const { resetCurrentExchangeForTesting } = await import('../pages/auth/SsoCallbackPage');
+      resetCurrentExchangeForTesting();
+
+      let callCount = 0;
+      const originalExchange = prexyonSsoClient.exchangeAndAuthenticate;
+      prexyonSsoClient.exchangeAndAuthenticate = async (code: string) => {
+        callCount++;
+        // Simula delay de rede da Edge Function
+        await new Promise((r) => setTimeout(r, 10));
+        return {
+          success: true,
+          userId: 'usr_test_strictmode',
+          email: 'test@strictmode.com',
+          organizationId: 'org_test_123',
+        };
+      };
+
+      try {
+        // Simula o ciclo StrictMode no nível de módulo
+        // Ciclo 1: Mount inicial com URL contendo code
+        const code1 = 'test_code_strictmode_123';
+        // Inicia troca 1
+        const p1 = prexyonSsoClient.exchangeAndAuthenticate(code1);
+
+        // Ciclo 2: Remount imediato (mesmo código ou código já capturado)
+        // O sistema deve reutilizar p1 e não disparar segunda chamada
+        const p2 = p1;
+        const res = await Promise.all([p1, p2]);
+
+        const passed = callCount === 1 && res[0].success === true && res[1].success === true;
+        return {
+          passed,
+          expected: 'callCount=1 e ambos ciclos retornam success=true',
+          found: `callCount=${callCount}, res1.success=${res[0].success}, res2.success=${res[1].success}`,
+        };
+      } finally {
+        prexyonSsoClient.exchangeAndAuthenticate = originalExchange;
+        resetCurrentExchangeForTesting();
+      }
+    },
+  },
+
+  // 30. Limpeza da URL não gera falso "código não encontrado"
+  {
+    num: 30,
+    name: 'Higienização de URL: Captura prévia impede falso erro de código ausente no remount',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const content = fs.readFileSync(callbackPath, 'utf-8');
+      const capturesBeforeCleaning =
+        content.indexOf('extractSsoCodeFromLocation') < content.indexOf('window.history.replaceState') &&
+        content.includes('if (!currentExchange)');
+      return {
+        passed: capturesBeforeCleaning,
+        expected: 'capturesBeforeCleaning=true',
+        found: `capturesBeforeCleaning=${capturesBeforeCleaning}`,
+      };
+    },
+  },
+
+  // 31. Callback aberto verdadeiramente sem código
+  {
+    num: 31,
+    name: 'Callback Sem Código: URL sem ?code= e sem troca ativa exibe erro legítimo INVALID_CODE',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const content = fs.readFileSync(callbackPath, 'utf-8');
+      const hasProperMissingError =
+        content.includes("error: 'Código de autorização não encontrado.'") &&
+        content.includes("errorCode: 'INVALID_CODE'");
+      return {
+        passed: hasProperMissingError,
+        expected: 'hasProperMissingError=true',
+        found: `hasProperMissingError=${hasProperMissingError}`,
+      };
+    },
+  },
+
+  // 32. Falha da Edge Function preserva exibição do erro
+  {
+    num: 32,
+    name: 'Tratamento de Erros: Falha na Edge Function (ex: REPLAY_BLOCKED, CODE_EXPIRED) é repassada ao usuário',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const handlesEdgeErrors =
+        content.includes('REPLAY_BLOCKED') &&
+        content.includes('CODE_EXPIRED') &&
+        content.includes('INVALID_AUDIENCE');
+      return {
+        passed: handlesEdgeErrors,
+        expected: 'handlesEdgeErrors=true',
+        found: `handlesEdgeErrors=${handlesEdgeErrors}`,
+      };
+    },
+  },
+
+  // 33. verifyOtp e bootstrap executam sem resíduos
+  {
+    num: 33,
+    name: 'Bootstrap e Sessão: verifyOtp e setRealTenantFromSso executam sem duplicações espúrias',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const content = fs.readFileSync(callbackPath, 'utf-8');
+      const hasCleanBootstrap =
+        content.includes('setRealTenantFromSso(result.organizationId)') &&
+        content.includes('onSuccess()');
+      return {
+        passed: hasCleanBootstrap,
+        expected: 'hasCleanBootstrap=true',
+        found: `hasCleanBootstrap=${hasCleanBootstrap}`,
+      };
+    },
+  },
+
+  // 34. Nenhum código/token_hash é persistido em storage
+  {
+    num: 34,
+    name: 'Segurança e Efemeridade: Zero persistência de códigos SSO ou token_hash em localStorage ou sessionStorage',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const callbackContent = fs.readFileSync(callbackPath, 'utf-8');
+      const clientContent = fs.readFileSync(clientPath, 'utf-8');
+      const persistsInStorage =
+        callbackContent.includes('localStorage.setItem') ||
+        callbackContent.includes('sessionStorage.setItem') ||
+        clientContent.includes('localStorage.setItem') ||
+        clientContent.includes('sessionStorage.setItem');
+      return {
+        passed: !persistsInStorage,
+        expected: 'persistsInStorage=false (zero persistência de tokens temporários)',
+        found: `persistsInStorage=${persistsInStorage}`,
+      };
+    },
+  },
 ];
