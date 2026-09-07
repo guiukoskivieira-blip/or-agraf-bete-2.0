@@ -291,13 +291,12 @@ const AuthRouteGuard: React.FC = () => {
       const pathname = window.location.pathname || '';
       const hash = window.location.hash || '';
 
-      // 1. Detecção de Callback de SSO Prexyon
-      if (
-        pathname.includes('/auth/prexyon') ||
-        hash.includes('auth/prexyon') ||
-        search.includes('code=') ||
-        hash.includes('code=')
-      ) {
+      // 1. Detecção de Callback de SSO Prexyon:
+      // Ativa sso-callback se houver código na URL (search/hash) OU se o pathname for /auth/prexyon sem usuário logado
+      const hasSsoCode = search.includes('code=') || hash.includes('code=');
+      const isSsoPath = pathname.includes('/auth/prexyon') || hash.includes('auth/prexyon');
+
+      if (hasSsoCode || (isSsoPath && !user)) {
         setAuthView('sso-callback');
         return;
       }
@@ -312,17 +311,27 @@ const AuthRouteGuard: React.FC = () => {
     handleAuthRouting();
     window.addEventListener('hashchange', handleAuthRouting);
     return () => window.removeEventListener('hashchange', handleAuthRouting);
-  }, []);
+  }, [user]);
 
   // 1. Rota de Callback SSO Prexyon (Executa tanto em modo conectado quanto standalone)
   if (authView === 'sso-callback') {
     return (
       <SsoCallbackPage
         onSuccess={() => {
+          // Higieniza completamente para a raiz da SPA com hash #general ou hash pretendido
+          const targetHash =
+            window.location.hash &&
+            window.location.hash !== '#/auth/prexyon' &&
+            window.location.hash !== '#auth/prexyon' &&
+            window.location.hash !== '#'
+              ? window.location.hash
+              : '#general';
+          window.history.replaceState({}, document.title, window.location.origin + '/' + targetHash);
           setAuthView('login');
-          window.location.hash = '#general';
+          window.location.hash = targetHash;
         }}
         onNavigateLogin={() => {
+          window.history.replaceState({}, document.title, window.location.origin + '/');
           setAuthView('login');
           window.location.hash = '';
         }}

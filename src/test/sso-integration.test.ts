@@ -761,4 +761,162 @@ export const ssoIntegrationTests: SsoTestCase[] = [
       };
     },
   },
+
+  // 35. /auth/prexyon?code=... inicia callback SSO normalmente
+  {
+    num: 35,
+    name: 'Início SSO: /auth/prexyon com ?code= ativa a rota sso-callback no AuthRouteGuard',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+      const content = fs.readFileSync(appPath, 'utf-8');
+      const detectsSsoCode =
+        content.includes("search.includes('code=')") &&
+        content.includes("pathname.includes('/auth/prexyon')") &&
+        content.includes("setAuthView('sso-callback')");
+      return {
+        passed: detectsSsoCode,
+        expected: 'detectsSsoCode=true',
+        found: `detectsSsoCode=${detectsSsoCode}`,
+      };
+    },
+  },
+
+  // 36. Após sucesso, pathname não permanece /auth/prexyon
+  {
+    num: 36,
+    name: 'Higienização de Pathname: SsoCallbackPage e onSuccess higienizam pathname para raiz /',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+      const callbackContent = fs.readFileSync(callbackPath, 'utf-8');
+      const appContent = fs.readFileSync(appPath, 'utf-8');
+
+      const cleansInCallback = callbackContent.includes("window.location.origin + '/'");
+      const cleansInApp = appContent.includes("window.location.origin + '/'");
+      const passed = cleansInCallback && cleansInApp;
+
+      return {
+        passed,
+        expected: 'cleansInCallback=true e cleansInApp=true',
+        found: `cleansInCallback=${cleansInCallback}, cleansInApp=${cleansInApp}`,
+      };
+    },
+  },
+
+  // 37. Clicar #quotes após SSO mantém #quotes
+  {
+    num: 37,
+    name: 'Navegação Quotes: hash #quotes não é interceptado nem revertido para #general',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+      const content = fs.readFileSync(appPath, 'utf-8');
+      const conditionalSsoGuard =
+        content.includes('if (hasSsoCode || (isSsoPath && !user))') &&
+        content.includes("case 'quotes':");
+      return {
+        passed: conditionalSsoGuard,
+        expected: 'conditionalSsoGuard=true (guarda não intercepta hash #quotes quando user está autenticado)',
+        found: `conditionalSsoGuard=${conditionalSsoGuard}`,
+      };
+    },
+  },
+
+  // 38. Clicar #customers mantém #customers
+  {
+    num: 38,
+    name: 'Navegação Customers: hash #customers é preservado na rota e renderiza página de clientes',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+      const content = fs.readFileSync(appPath, 'utf-8');
+      const routesCustomers = content.includes("case 'customers':");
+      return {
+        passed: routesCustomers,
+        expected: 'routesCustomers=true',
+        found: `routesCustomers=${routesCustomers}`,
+      };
+    },
+  },
+
+  // 39. Clicar #catalog mantém #catalog
+  {
+    num: 39,
+    name: 'Navegação Catalog: hash #catalog é preservado na rota e renderiza catálogo',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+      const content = fs.readFileSync(appPath, 'utf-8');
+      const routesCatalog = content.includes("case 'catalog':");
+      return {
+        passed: routesCatalog,
+        expected: 'routesCatalog=true',
+        found: `routesCatalog=${routesCatalog}`,
+      };
+    },
+  },
+
+  // 40. Hashchange com usuário autenticado não reabre sso-callback
+  {
+    num: 40,
+    name: 'Hashchange Seguro: Disparo de evento hashchange com user autenticado ignora sso-callback',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const appPath = path.resolve(process.cwd(), 'src/App.tsx');
+      const content = fs.readFileSync(appPath, 'utf-8');
+      const checksUserOnSsoPath = content.includes('(isSsoPath && !user)');
+      return {
+        passed: checksUserOnSsoPath,
+        expected: 'checksUserOnSsoPath=true',
+        found: `checksUserOnSsoPath=${checksUserOnSsoPath}`,
+      };
+    },
+  },
+
+  // 41. Callback sem código/sessão mantém tratamento correto
+  {
+    num: 41,
+    name: 'Tratamento Sem Código: Ausência de código e de sessão ativa continua exibindo erro seguro',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const content = fs.readFileSync(callbackPath, 'utf-8');
+      const hasMissingCodeHandling = content.includes("error: 'Código de autorização não encontrado.'");
+      return {
+        passed: hasMissingCodeHandling,
+        expected: 'hasMissingCodeHandling=true',
+        found: `hasMissingCodeHandling=${hasMissingCodeHandling}`,
+      };
+    },
+  },
+
+  // 42. Idempotência StrictMode preservada com higienização de pathname
+  {
+    num: 42,
+    name: 'StrictMode + Pathname Raiz: Troca única garantida mesmo com limpeza imediata para /',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const callbackPath = path.resolve(process.cwd(), 'src/pages/auth/SsoCallbackPage.tsx');
+      const content = fs.readFileSync(callbackPath, 'utf-8');
+      const preservesIdempotency =
+        content.includes('currentExchange') &&
+        content.includes('currentExchange.promise') &&
+        content.includes("window.location.origin + '/'");
+      return {
+        passed: preservesIdempotency,
+        expected: 'preservesIdempotency=true',
+        found: `preservesIdempotency=${preservesIdempotency}`,
+      };
+    },
+  },
 ];

@@ -60,8 +60,9 @@ export const SsoCallbackPage: React.FC<SsoCallbackPageProps> = ({
       const extractedCode = extractSsoCodeFromLocation();
 
       if (extractedCode) {
-        // Higieniza a URL somente após capturar o código de forma segura
-        const cleanUrl = window.location.origin + window.location.pathname;
+        // Higieniza a URL (limpando ?code=... e o pathname /auth/prexyon para a raiz /) somente após capturar o código com segurança
+        const currentHash = window.location.hash && !window.location.hash.includes('auth/prexyon') ? window.location.hash : '';
+        const cleanUrl = window.location.origin + '/' + currentHash;
         window.history.replaceState({}, document.title, cleanUrl);
 
         // Se ainda não houver troca em andamento para este código, inicia a chamada única
