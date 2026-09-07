@@ -1,6 +1,6 @@
 /**
  * @file supabase-client.ts
- * @description Cliente Supabase Oficial do OrçaGraf (Prexyon-Ready)
+ * @description Cliente Supabase Oficial do OrçaGraf (Prexyon-Ready - Publishable Key Exclusiva)
  * @project OrçaGraf
  */
 
@@ -8,7 +8,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export interface SupabaseConfig {
   supabaseUrl: string;
-  supabaseAnonKey: string;
+  supabasePublishableKey: string;
+  supabaseAnonKey?: string;
   redirectUrl?: string;
   isConfigured: boolean;
   isModeConnected: boolean;
@@ -16,6 +17,7 @@ export interface SupabaseConfig {
 
 /**
  * Avalia as variáveis de ambiente e determina se o modo autenticado está habilitado e configurado.
+ * Utiliza EXCLUSIVAMENTE VITE_SUPABASE_PUBLISHABLE_KEY (sem fallback para chaves legadas anon).
  */
 export function getSupabaseConfig(
   env: Record<string, unknown> = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {})
@@ -25,12 +27,10 @@ export function getSupabaseConfig(
   const isModeConnected = mode === 'connected' || mode === 'platform';
 
   const supabaseUrl = typeof safeEnv.VITE_SUPABASE_URL === 'string' ? safeEnv.VITE_SUPABASE_URL.trim() : '';
-  const supabaseAnonKey =
+  const supabasePublishableKey =
     typeof safeEnv.VITE_SUPABASE_PUBLISHABLE_KEY === 'string' && safeEnv.VITE_SUPABASE_PUBLISHABLE_KEY.trim() !== ''
       ? safeEnv.VITE_SUPABASE_PUBLISHABLE_KEY.trim()
-      : typeof safeEnv.VITE_SUPABASE_ANON_KEY === 'string'
-        ? safeEnv.VITE_SUPABASE_ANON_KEY.trim()
-        : '';
+      : '';
 
   const redirectUrl =
     typeof safeEnv.VITE_AUTH_REDIRECT_URL === 'string' && safeEnv.VITE_AUTH_REDIRECT_URL.trim() !== ''
@@ -47,11 +47,12 @@ export function getSupabaseConfig(
     }
   }
 
-  const isConfigured = Boolean(isValidUrl && supabaseAnonKey);
+  const isConfigured = Boolean(isValidUrl && supabasePublishableKey);
 
   return {
     supabaseUrl,
-    supabaseAnonKey,
+    supabasePublishableKey,
+    supabaseAnonKey: supabasePublishableKey,
     redirectUrl,
     isConfigured,
     isModeConnected,
@@ -74,7 +75,7 @@ export function getSupabaseClient(
   }
 
   if (!clientInstance) {
-    clientInstance = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    clientInstance = createClient(config.supabaseUrl, config.supabasePublishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

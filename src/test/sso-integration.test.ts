@@ -919,4 +919,102 @@ export const ssoIntegrationTests: SsoTestCase[] = [
       };
     },
   },
+
+  // 43. Cliente Supabase inicializa com publishable key válida
+  {
+    num: 43,
+    name: 'Publishable Key: Cliente Supabase inicializa com VITE_SUPABASE_PUBLISHABLE_KEY válida',
+    run: async () => {
+      const { getSupabaseConfig, getSupabaseClient, resetSupabaseClient } = await import('../services/supabase-client');
+      resetSupabaseClient();
+      const cfg = getSupabaseConfig({
+        VITE_PREXYON_MODE: 'connected',
+        VITE_SUPABASE_URL: 'https://exemplo-pub.supabase.co',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_pub_test_12345',
+      });
+      const client = getSupabaseClient({
+        VITE_PREXYON_MODE: 'connected',
+        VITE_SUPABASE_URL: 'https://exemplo-pub.supabase.co',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_pub_test_12345',
+      });
+      resetSupabaseClient();
+
+      const passed = cfg.isConfigured === true && cfg.supabasePublishableKey === 'sb_pub_test_12345' && client !== null;
+      return {
+        passed,
+        expected: 'cfg.isConfigured=true e client != null',
+        found: `isConfigured=${cfg.isConfigured}, clientIsNull=${client === null}`,
+      };
+    },
+  },
+
+  // 44. Ausência de publishable key falha de forma fail-closed
+  {
+    num: 44,
+    name: 'Fail-Closed: Ausência de VITE_SUPABASE_PUBLISHABLE_KEY impede inicialização do cliente',
+    run: async () => {
+      const { getSupabaseConfig, getSupabaseClient, resetSupabaseClient } = await import('../services/supabase-client');
+      resetSupabaseClient();
+      const cfg = getSupabaseConfig({
+        VITE_PREXYON_MODE: 'connected',
+        VITE_SUPABASE_URL: 'https://exemplo-pub.supabase.co',
+      });
+      const client = getSupabaseClient({
+        VITE_PREXYON_MODE: 'connected',
+        VITE_SUPABASE_URL: 'https://exemplo-pub.supabase.co',
+      });
+
+      const passed = cfg.isConfigured === false && client === null;
+      return {
+        passed,
+        expected: 'cfg.isConfigured=false e client=null',
+        found: `isConfigured=${cfg.isConfigured}, clientIsNull=${client === null}`,
+      };
+    },
+  },
+
+  // 45. VITE_SUPABASE_ANON_KEY isolada NÃO é aceita como fallback
+  {
+    num: 45,
+    name: 'Zero Fallback Anon: Variável VITE_SUPABASE_ANON_KEY não é aceita como fallback de runtime',
+    run: async () => {
+      const { getSupabaseConfig, getSupabaseClient, resetSupabaseClient } = await import('../services/supabase-client');
+      resetSupabaseClient();
+      const cfg = getSupabaseConfig({
+        VITE_PREXYON_MODE: 'connected',
+        VITE_SUPABASE_URL: 'https://exemplo-pub.supabase.co',
+        VITE_SUPABASE_ANON_KEY: 'legacy_anon_key_should_fail',
+      });
+      const client = getSupabaseClient({
+        VITE_PREXYON_MODE: 'connected',
+        VITE_SUPABASE_URL: 'https://exemplo-pub.supabase.co',
+        VITE_SUPABASE_ANON_KEY: 'legacy_anon_key_should_fail',
+      });
+
+      const passed = cfg.isConfigured === false && client === null;
+      return {
+        passed,
+        expected: 'isConfigured=false e client=null (anon key isolada ignorada)',
+        found: `isConfigured=${cfg.isConfigured}, clientIsNull=${client === null}`,
+      };
+    },
+  },
+
+  // 46. Nenhuma leitura runtime de VITE_SUPABASE_ANON_KEY no código
+  {
+    num: 46,
+    name: 'Auditoria de Código: Nenhuma referência de leitura runtime a VITE_SUPABASE_ANON_KEY existe em src/services/',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/supabase-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const hasAnonRead = content.includes('safeEnv.VITE_SUPABASE_ANON_KEY') || content.includes("env['VITE_SUPABASE_ANON_KEY']");
+      return {
+        passed: !hasAnonRead,
+        expected: 'hasAnonRead=false',
+        found: `hasAnonRead=${hasAnonRead}`,
+      };
+    },
+  },
 ];
