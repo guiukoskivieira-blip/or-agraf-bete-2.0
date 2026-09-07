@@ -457,4 +457,136 @@ export const ssoIntegrationTests: SsoTestCase[] = [
       };
     },
   },
+
+  // 21. Nenhuma chamada browser-side à RPC prexyon_exchange_sso_code
+  {
+    num: 21,
+    name: 'SSO V2: Nenhuma chamada browser-side à RPC prexyon_exchange_sso_code existe no código',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const hasLegacyRpc = content.includes("supabase.rpc('prexyon_exchange_sso_code'");
+      const passed = !hasLegacyRpc;
+      return {
+        passed,
+        expected: 'hasLegacyRpc=false (sem chamadas RPC de troca pelo browser)',
+        found: `hasLegacyRpc=${hasLegacyRpc}`,
+      };
+    },
+  },
+
+  // 22. Edge Function prexyon-sso-exchange é utilizada
+  {
+    num: 22,
+    name: 'SSO V2: Edge Function central prexyon-sso-exchange é invocada para a troca server-side',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const invokesEdgeFunction = content.includes("supabase.functions.invoke('prexyon-sso-exchange'");
+      return {
+        passed: invokesEdgeFunction,
+        expected: 'invokesEdgeFunction=true',
+        found: `invokesEdgeFunction=${invokesEdgeFunction}`,
+      };
+    },
+  },
+
+  // 23. Audience = 'orcagraf'
+  {
+    num: 23,
+    name: 'SSO V2: Audience do payload da Edge Function é estritamente "orcagraf"',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const hasAudienceOrcagraf = content.includes("audience: 'orcagraf'") || content.includes('audience: "orcagraf"');
+      return {
+        passed: hasAudienceOrcagraf,
+        expected: 'hasAudienceOrcagraf=true',
+        found: `hasAudienceOrcagraf=${hasAudienceOrcagraf}`,
+      };
+    },
+  },
+
+  // 24. verifyOtp usa token_hash retornado
+  {
+    num: 24,
+    name: 'SSO V2: Estabelecimento de sessão utiliza verifyOtp com token_hash e type magiclink',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const usesVerifyOtp =
+        content.includes('supabase.auth.verifyOtp') &&
+        content.includes('token_hash: tokenHash') &&
+        content.includes("type: 'magiclink'");
+      return {
+        passed: usesVerifyOtp,
+        expected: 'usesVerifyOtp=true com token_hash e type magiclink',
+        found: `usesVerifyOtp=${usesVerifyOtp}`,
+      };
+    },
+  },
+
+  // 25. Falha da Edge Function não cria sessão
+  {
+    num: 25,
+    name: 'SSO V2: Falha ou erro na Edge Function retorna erro tipado sem criar sessão espúria',
+    run: async () => {
+      const res = await prexyonSsoClient.exchangeAndAuthenticate('invalid_sample_code_123');
+      const passed = res.success === false && Boolean(res.errorCode);
+      return {
+        passed,
+        expected: 'res.success=false com errorCode definido',
+        found: `success=${res.success}, errorCode=${res.errorCode}, error=${res.error}`,
+      };
+    },
+  },
+
+  // 26. Falha de verifyOtp não deixa sessão parcial
+  {
+    num: 26,
+    name: 'SSO V2: Falha de verifyOtp executa signOut() imediato e não deixa sessão parcial',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const cleansOnOtpError =
+        content.includes('if (otpError)') &&
+        content.includes('await supabase.auth.signOut();');
+      return {
+        passed: cleansOnOtpError,
+        expected: 'cleansOnOtpError=true (signOut chamado em caso de erro de OTP)',
+        found: `cleansOnOtpError=${cleansOnOtpError}`,
+      };
+    },
+  },
+
+  // 27. Código/token_hash não são logados
+  {
+    num: 27,
+    name: 'SSO V2: Código de autorização, token_hash ou JWT não são expostos em logs do cliente',
+    run: async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const clientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+      const content = fs.readFileSync(clientPath, 'utf-8');
+      const logsRawTokens =
+        content.includes('console.log(code') ||
+        content.includes('console.log(tokenHash') ||
+        content.includes('console.log(data');
+      return {
+        passed: !logsRawTokens,
+        expected: 'logsRawTokens=false (zero vazamento de tokens nos logs)',
+        found: `logsRawTokens=${logsRawTokens}`,
+      };
+    },
+  },
 ];

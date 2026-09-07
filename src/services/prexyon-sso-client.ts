@@ -1,6 +1,6 @@
 /**
  * @file prexyon-sso-client.ts
- * @description Cliente de Recepção, Validação e Estabelecimento de Sessão SSO Prexyon -> OrçaGraf
+ * @description Cliente de Recepção, Validação e Estabelecimento de Sessão SSO V2 Prexyon -> OrçaGraf
  * @project OrçaGraf
  */
 
@@ -17,16 +17,10 @@ export interface SsoExchangeResult {
   errorCode?: 'CODE_EXPIRED' | 'REPLAY_BLOCKED' | 'INVALID_AUDIENCE' | 'INVALID_CODE' | 'USER_MISMATCH' | 'ACCESS_DENIED' | 'NETWORK_ERROR';
 }
 
-async function computeSha256(text: string): Promise<string> {
-  const msgUint8 = new TextEncoder().encode(text.trim());
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 export const prexyonSsoClient = {
   /**
-   * Executa a troca atômica do Authorization Code e estabelece a sessão oficial Supabase Auth no OrçaGraf.
+   * Executa a troca atômica do Authorization Code via Edge Function central Prexyon SSO V2
+   * e estabelece a sessão oficial Supabase Auth no OrçaGraf.
    */
   async exchangeAndAuthenticate(code: string): Promise<SsoExchangeResult> {
     if (!code || typeof code !== 'string' || code.trim() === '') {
@@ -48,28 +42,32 @@ export const prexyonSsoClient = {
     }
 
     try {
-      // 1. Computar SHA-256 do código recebido (não transmitimos o código puro de forma desnecessária)
-      const codeHash = await computeSha256(code);
-
-      // 2. Chamar RPC atômica prexyon_exchange_sso_code no banco central
-      const { data, error } = await supabase.rpc('prexyon_exchange_sso_code' as any, {
-        p_code_hash: codeHash,
-        p_audience: 'orcagraf',
+      // 1. Invocar Edge Function central prexyon-sso-exchange (SSO V2 Oficial)
+      const { data, error } = await supabase.functions.invoke('prexyon-sso-exchange', {
+        body: {
+          code: code.trim(),
+          audience: 'orcagraf',
+        },
       });
 
-      if (error) {
+      if (error || !data || data.success === false) {
         let userMsg = 'Não foi possível confirmar seu acesso ao OrçaGraf.';
         let errCode: SsoExchangeResult['errorCode'] = 'INVALID_CODE';
 
-        if (error.message.includes('REPLAY_BLOCKED')) {
+        const errMsg = (data?.error || error?.message || '').toString();
+
+        if (errMsg.includes('REPLAY_BLOCKED')) {
           userMsg = 'Este link de acesso já foi utilizado. Volte à Prexyon e clique em Abrir OrçaGraf novamente.';
           errCode = 'REPLAY_BLOCKED';
-        } else if (error.message.includes('CODE_EXPIRED')) {
+        } else if (errMsg.includes('CODE_EXPIRED')) {
           userMsg = 'Este acesso temporário expirou. Volte à Prexyon e tente novamente.';
           errCode = 'CODE_EXPIRED';
-        } else if (error.message.includes('INVALID_AUDIENCE')) {
+        } else if (errMsg.includes('INVALID_AUDIENCE')) {
           userMsg = 'Código de acesso destinado a outro software do ecossistema.';
           errCode = 'INVALID_AUDIENCE';
+        } else if (errMsg.includes('INVALID_CODE')) {
+          userMsg = 'Código de autorização inválido ou expirado.';
+          errCode = 'INVALID_CODE';
         }
 
         return {
@@ -79,38 +77,40 @@ export const prexyonSsoClient = {
         };
       }
 
-      const ssoData = data as {
-        success: boolean;
-        user_id: string;
-        email: string;
-        full_name: string;
-        organization_id: string;
-        product_code: string;
-        token_hash?: string;
-      };
+      // 2. Extrair dados da resposta (com suporte a snake_case e camelCase)
+      const tokenHash = (data.token_hash || data.tokenHash || data.token) as string | undefined;
+      const userId = (data.user_id || data.userId) as string;
+      const email = (data.email) as string;
+      const fullName = (data.full_name || data.fullName || data.name) as string;
+      const organizationId = (data.organization_id || data.organizationId) as string;
+      const productCode = (data.product_code || data.productCode || 'orcagraf') as string;
 
-      // 3. Estabelecer ou Sincronizar Sessão Oficial Supabase Auth
-      // Se houver token_hash emitido pelo servidor, verifica via verifyOtp (padrão oficial Supabase)
-      if (ssoData.token_hash) {
+      // 3. Estabelecer ou Sincronizar Sessão Oficial Supabase Auth via verifyOtp
+      if (tokenHash) {
         // Encerra qualquer sessão residual incompatível antes de autenticar
         const { data: currentSessionData } = await supabase.auth.getSession();
-        if (currentSessionData?.session && currentSessionData.session.user.id !== ssoData.user_id) {
+        if (currentSessionData?.session && currentSessionData.session.user.id !== userId) {
           await supabase.auth.signOut();
         }
 
         const { error: otpError } = await supabase.auth.verifyOtp({
-          token_hash: ssoData.token_hash,
+          token_hash: tokenHash,
           type: 'magiclink',
         });
 
         if (otpError) {
-          console.warn('[SSO] Falha ao verificar OTP oficial:', otpError.message);
+          await supabase.auth.signOut();
+          return {
+            success: false,
+            error: 'Falha ao autenticar sessão com a chave de acesso. Tente novamente.',
+            errorCode: 'INVALID_CODE',
+          };
         }
       }
 
       // 4. Verificação de integridade da identidade do usuário
       const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user && userData.user.id !== ssoData.user_id) {
+      if (userData?.user && userId && userData.user.id !== userId) {
         // User Mismatch detectado: encerra sessão conflitante
         await supabase.auth.signOut();
         return {
@@ -121,29 +121,31 @@ export const prexyonSsoClient = {
       }
 
       // 5. Validação de Defesa em Profundidade no lado OrçaGraf
-      // Valida se a organização está ativa e se o usuário é membro
-      const { data: memberData } = await supabase
-        .from('organization_members')
-        .select('id, role, is_active, is_locked')
-        .eq('organization_id', ssoData.organization_id)
-        .eq('user_id', ssoData.user_id)
-        .maybeSingle();
+      if (organizationId && userId) {
+        const { data: memberData } = await supabase
+          .from('organization_members')
+          .select('id, role, is_active, is_locked')
+          .eq('organization_id', organizationId)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (memberData && (!memberData.is_active || memberData.is_locked)) {
-        return {
-          success: false,
-          error: 'Sua conta de usuário está inativa ou bloqueada nesta organização.',
-          errorCode: 'ACCESS_DENIED',
-        };
+        if (memberData && (!memberData.is_active || memberData.is_locked)) {
+          await supabase.auth.signOut();
+          return {
+            success: false,
+            error: 'Sua conta de usuário está inativa ou bloqueada nesta organização.',
+            errorCode: 'ACCESS_DENIED',
+          };
+        }
       }
 
       return {
         success: true,
-        userId: ssoData.user_id,
-        email: ssoData.email,
-        fullName: ssoData.full_name,
-        organizationId: ssoData.organization_id,
-        productCode: ssoData.product_code,
+        userId,
+        email,
+        fullName,
+        organizationId,
+        productCode,
       };
     } catch (err: any) {
       return {
