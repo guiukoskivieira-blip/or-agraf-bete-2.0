@@ -9,7 +9,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export interface SupabaseConfig {
   supabaseUrl: string;
   supabasePublishableKey: string;
-  supabaseAnonKey?: string;
   redirectUrl?: string;
   isConfigured: boolean;
   isModeConnected: boolean;
@@ -52,7 +51,6 @@ export function getSupabaseConfig(
   return {
     supabaseUrl,
     supabasePublishableKey,
-    supabaseAnonKey: supabasePublishableKey,
     redirectUrl,
     isConfigured,
     isModeConnected,
