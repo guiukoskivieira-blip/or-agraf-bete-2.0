@@ -14,6 +14,7 @@ import { canonicalPermissionsMatrixTests } from './canonical-permissions-matrix.
 import { runQuoteValidationTests } from './quote-validation.test';
 import { runDiscountValidationTests } from './discount-validation.test';
 import { runCustomerIdNormalizationTests } from './customer-id-normalization.test';
+import { runQuoteDetailsLoadingGuardTests } from './quote-details-loading-guard.test';
 
 async function main() {
   console.log('====================================');
@@ -33,6 +34,7 @@ async function main() {
   const quoteValidation = runQuoteValidationTests();
   const discountValidation = runDiscountValidationTests();
   const customerIdNormalization = runCustomerIdNormalizationTests();
+  const quoteDetailsLoadingGuard = runQuoteDetailsLoadingGuardTests();
 
   const ssoResults = await Promise.all(
     ssoIntegrationTests.map(async (tc) => {
@@ -84,6 +86,7 @@ async function main() {
     ...quoteValidation,
     ...discountValidation,
     ...customerIdNormalization,
+    ...quoteDetailsLoadingGuard,
     ...ssoResults,
     ...persistenceResults,
     ...matrixResults,

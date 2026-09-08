@@ -49,7 +49,7 @@ interface QuoteDetailsPageProps {
 }
 
 export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onBack, onNavigate }) => {
-  const { quotes, approveQuote, rejectQuote, downloadQuotePdf, sendQuoteViaWhatsApp } = useCommercial();
+  const { quotes, approveQuote, rejectQuote, downloadQuotePdf, sendQuoteViaWhatsApp, isLoadingCommercial } = useCommercial();
   const { currentCompany, currentUser } = useTenant();
   const { showNotice } = useNotification();
   const capabilities = getEnvironmentCapabilities();
@@ -110,6 +110,17 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isConfirmApproveModalOpen, isWpModalOpen, isApproving]);
+
+  if (isLoadingCommercial && !quote) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto py-12" role="status" aria-live="polite">
+        <Card className="p-12 text-center bg-white border-slate-200 shadow-xs space-y-4">
+          <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-slate-600 font-medium text-sm">Carregando detalhes do orçamento...</p>
+        </Card>
+      </div>
+    );
+  }
 
   if (!quote) {
     return (
