@@ -185,10 +185,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenProfile 
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Logo Oficial Branca Prexyon (sem wrapper branco) */}
-        <div
-          onClick={() => { window.location.hash = '#general'; }}
-          className="cursor-pointer flex items-center shrink-0"
+        {/* Logo Oficial Branca Prexyon (link para o Portal Prexyon) */}
+        <a
+          href={portalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-lg"
+          aria-label="Portal Prexyon"
           title="Prexyon - Tecnologia para Pequena Empresa"
         >
           <img
@@ -196,7 +199,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenProfile 
             alt="Prexyon"
             className="h-7 sm:h-8 w-auto object-contain"
           />
-        </div>
+        </a>
 
         <div className="hidden h-8 w-px bg-white/20 md:block" />
 

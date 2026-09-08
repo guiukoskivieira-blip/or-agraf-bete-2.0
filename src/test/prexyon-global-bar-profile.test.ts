@@ -1,6 +1,6 @@
 /**
  * @file prexyon-global-bar-profile.test.ts
- * @description Testes direcionados para a Barra Global Prexyon, Perfil Enxuto, Logout Prexyon e RPC SSO V2 Canônica
+ * @description Testes direcionados para a Barra Global Prexyon, Perfil Enxuto, Logout Prexyon, RPC SSO V2 Canônica e Link da Logo
  * @project OrçaGraf
  */
 
@@ -80,7 +80,15 @@ export async function runPrexyonGlobalBarProfileTests(): Promise<TestResult[]> {
     'Asset oficial da logo Prexyon presente no repositório com integridade confirmada'
   );
 
-  // 4. Verificação Estrita: Ausência total de referências a prexyon-sso-generate
+  // 4. Verificação da Logo Prexyon Clicável na Global Bar apontando para Portal Prexyon
+  const headerPath = path.resolve(process.cwd(), 'src/components/layout/Header.tsx');
+  const headerCode = fs.readFileSync(headerPath, 'utf-8');
+  assert(
+    headerCode.includes('href={portalUrl}') && headerCode.includes('aria-label="Portal Prexyon"'),
+    'Logo oficial Prexyon é um link semântico apontando para o Portal Prexyon (portalUrl)'
+  );
+
+  // 5. Verificação Estrita: Ausência total de referências a prexyon-sso-generate
   const ssoClientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
   const ssoClientCode = fs.readFileSync(ssoClientPath, 'utf-8');
   assert(
@@ -92,7 +100,7 @@ export async function runPrexyonGlobalBarProfileTests(): Promise<TestResult[]> {
     'Chamada atualizada para RPC canônica public.prexyon_generate_sso_code'
   );
 
-  // 5. Testes Comportamentais de generateProductRedirect
+  // 6. Testes Comportamentais de generateProductRedirect
   // a) Produto atual OrçaGraf não gera SSO desnecessário
   const selfSwitch = await prexyonSsoClient.generateProductRedirect('orcagraf', 'org_123');
   assert(
