@@ -1,4 +1,4 @@
-﻿-- =============================================================================
+-- =============================================================================
 -- Migration: 0011_fix_quote_items_version_in_atomic_rpcs.sql
 -- Description: Correção das RPCs public.create_quote_atomic e public.update_quote_atomic
 --              removendo a referência à coluna inexistente "version" em public.quote_items.
