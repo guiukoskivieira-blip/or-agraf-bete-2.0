@@ -173,6 +173,7 @@ export const prexyonSsoClient = {
       const { data, error } = await supabase.functions.invoke('prexyon-sso-generate', {
         body: {
           target_product: targetProduct,
+          audience: targetProduct,
           target_organization_id: targetOrganizationId,
         },
       });
