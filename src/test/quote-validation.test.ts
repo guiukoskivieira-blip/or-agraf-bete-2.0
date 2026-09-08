@@ -1,7 +1,7 @@
 /**
  * @file quote-validation.test.ts
  * @description Testes unitários e de domínio para a validação de formulário de novo orçamento
- * @project OrçaGraf - Hotfix Validação de Orçamento Comercial
+ * @project OrçaGraf - Validação Estrita de Identificação do Item
  */
 
 import { validateQuoteForm, QuoteFormItem, QuoteFormValidationParams } from '../domain/quote-validation';
@@ -16,7 +16,7 @@ export interface TestResult {
 
 export function runQuoteValidationTests(): TestResult[] {
   const results: TestResult[] = [];
-  const suiteName = 'Validação de Orçamento Comercial (Hotfix)';
+  const suiteName = 'Validação de Orçamento Comercial (Identificação Estrita)';
 
   const record = (testName: string, fn: () => void) => {
     try {
@@ -54,14 +54,15 @@ export function runQuoteValidationTests(): TestResult[] {
     },
   ];
 
-  // 1. Orçamento mínimo válido
-  record('1. Orçamento comercial mínimo válido é aprovado na validação', () => {
+  // 1. productName preenchido + notes vazio → PASSA
+  record('1. productName preenchido + notes vazio é aprovado com sucesso', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Gráfica Express Ltda',
       items: [
         {
           id: 'item_1',
           productName: 'Cartão de Visita 4x4',
+          notes: '',
           pricingMode: 'UNIT',
           quantity: 100,
           unitPriceCents: 50,
@@ -79,8 +80,97 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 2. Cliente ausente
-  record('2. Nome do cliente ausente ou em branco falha com erro específico', () => {
+  // 2. productName vazio + notes preenchido → FALHA
+  record('2. productName vazio + notes preenchido bloqueia e exige identificação explícita do item', () => {
+    const params: QuoteFormValidationParams = {
+      customerName: 'Cliente Teste',
+      items: [
+        {
+          id: 'item_1',
+          productName: '',
+          notes: 'Adesivo Vinil Fosco Impresso com Recorte',
+          pricingMode: 'UNIT',
+          quantity: 5,
+          unitPriceCents: 2000,
+          totalPriceCents: 10000,
+        },
+      ],
+    };
+
+    const res = validateQuoteForm(params);
+    if (res.isValid) {
+      throw new Error('Deveria ter bloqueado quando productName está vazio, mesmo com notes preenchido');
+    }
+    if (res.field !== 'items[0].productName') {
+      throw new Error(`Campo esperado items[0].productName, obtido: ${res.field}`);
+    }
+    if (res.message !== 'Informe a identificação ou nome do item 1.') {
+      throw new Error(`Mensagem inesperada: ${res.message}`);
+    }
+  });
+
+  // 3. productName vazio + notes vazio → FALHA
+  record('3. productName vazio + notes vazio bloqueia e aponta item 1', () => {
+    const params: QuoteFormValidationParams = {
+      customerName: 'Cliente Teste',
+      items: [
+        {
+          id: 'item_1',
+          productName: '',
+          notes: '',
+          pricingMode: 'UNIT',
+          quantity: 10,
+          unitPriceCents: 1000,
+          totalPriceCents: 10000,
+        },
+      ],
+    };
+
+    const res = validateQuoteForm(params);
+    if (res.isValid) {
+      throw new Error('Deveria ter falhado por productName vazio');
+    }
+    if (res.field !== 'items[0].productName') {
+      throw new Error(`Campo esperado items[0].productName, obtido: ${res.field}`);
+    }
+    if (res.message !== 'Informe a identificação ou nome do item 1.') {
+      throw new Error(`Mensagem inesperada: ${res.message}`);
+    }
+  });
+
+  // 4. notes nunca altera productName
+  record('4. notes nunca sobrescreve ou altera productName quando ambos preenchidos', () => {
+    const params: QuoteFormValidationParams = {
+      customerName: 'Cliente Teste',
+      items: [
+        {
+          id: 'item_1',
+          productName: 'Banner Promocional 440g',
+          notes: 'Observação técnica sobre acabamento especial e ilhós reforçado',
+          pricingMode: 'SQUARE_METER',
+          quantity: 1,
+          widthMm: 1000,
+          heightMm: 2000,
+          unitPriceCents: 8000,
+          totalPriceCents: 8000,
+        },
+      ],
+    };
+
+    const res = validateQuoteForm(params);
+    if (!res.isValid) {
+      throw new Error(`Esperava ser válido, mas falhou: ${res.message}`);
+    }
+    if (res.sanitizedItems?.[0].productName !== 'Banner Promocional 440g') {
+      throw new Error(`productName foi alterado indevidamente: ${res.sanitizedItems?.[0].productName}`);
+    }
+    if (res.sanitizedItems?.[0].notes !== 'Observação técnica sobre acabamento especial e ilhós reforçado') {
+      throw new Error(`notes foi alterado indevidamente: ${res.sanitizedItems?.[0].notes}`);
+    }
+  });
+
+  // 5. Cliente ausente
+  record('5. Nome do cliente ausente ou em branco falha com erro específico', () => {
     const params: QuoteFormValidationParams = {
       customerName: '   ',
       items: [
@@ -109,8 +199,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 3. Itens ausentes
-  record('3. Lista de itens vazia falha com erro específico', () => {
+  // 6. Itens ausentes
+  record('6. Lista de itens vazia falha com erro específico', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [],
@@ -125,62 +215,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 4. Item sem identificação/nome
-  record('4. Item sem nome e sem notas falha especificando o número do item', () => {
-    const params: QuoteFormValidationParams = {
-      customerName: 'Cliente Teste',
-      items: [
-        {
-          id: 'item_1',
-          productName: '',
-          pricingMode: 'UNIT',
-          quantity: 10,
-          unitPriceCents: 1000,
-          totalPriceCents: 10000,
-        },
-      ],
-    };
-
-    const res = validateQuoteForm(params);
-    if (res.isValid) {
-      throw new Error('Deveria ter falhado por nome do item vazio');
-    }
-    if (res.field !== 'items[0].productName') {
-      throw new Error(`Campo esperado items[0].productName, obtido: ${res.field}`);
-    }
-    if (!res.message?.includes('item 1')) {
-      throw new Error(`Mensagem não contém número do item: ${res.message}`);
-    }
-  });
-
-  // 5. Item personalizado sem nome mas com observações técnicas é normalizado e aprovado
-  record('5. Item personalizado sem nome mas com observações técnicas é recuperado e aprovado', () => {
-    const params: QuoteFormValidationParams = {
-      customerName: 'Cliente Teste',
-      items: [
-        {
-          id: 'item_1',
-          productName: '',
-          notes: 'Adesivo Vinil Fosco Impresso com Recorte',
-          pricingMode: 'UNIT',
-          quantity: 5,
-          unitPriceCents: 2000,
-          totalPriceCents: 10000,
-        },
-      ],
-    };
-
-    const res = validateQuoteForm(params);
-    if (!res.isValid) {
-      throw new Error(`Deveria ter aprovado com fallback para notes: ${res.message}`);
-    }
-    if (res.sanitizedItems?.[0].productName !== 'Adesivo Vinil Fosco Impresso com Recorte') {
-      throw new Error(`productName não foi preenchido corretamente: ${res.sanitizedItems?.[0].productName}`);
-    }
-  });
-
-  // 6. Quantidade inválida
-  record('6. Quantidade zero ou negativa falha com identificação do item', () => {
+  // 7. Quantidade inválida
+  record('7. Quantidade zero ou negativa falha com identificação do item', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -204,8 +240,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 7. Preço zero ou negativo
-  record('7. Preço unitário zero falha especificando o item', () => {
+  // 8. Preço zero ou negativo
+  record('8. Preço unitário zero falha especificando o item', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -229,8 +265,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 8. Modalidade LOT com lotSize inválido
-  record('8. Modalidade LOT com tamanho do lote <= 0 falha com mensagem clara', () => {
+  // 9. Modalidade LOT com lotSize inválido
+  record('9. Modalidade LOT com tamanho do lote <= 0 falha com mensagem clara', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -255,8 +291,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 9. Modalidade SQUARE_METER com dimensões zeradas
-  record('9. Modalidade SQUARE_METER sem largura ou altura falha especificando dimensões', () => {
+  // 10. Modalidade SQUARE_METER com dimensões zeradas
+  record('10. Modalidade SQUARE_METER sem largura ou altura falha especificando dimensões', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -282,8 +318,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 10. Modalidade LINEAR_METER com comprimento inválido
-  record('10. Modalidade LINEAR_METER sem comprimento válido falha', () => {
+  // 11. Modalidade LINEAR_METER com comprimento inválido
+  record('11. Modalidade LINEAR_METER sem comprimento válido falha', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -308,8 +344,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 11. Campos comerciais opcionais ausentes passam com 100% de sucesso
-  record('11. Todos os campos opcionais vazios passam com sucesso', () => {
+  // 12. Demais campos opcionais vazios continuam sem bloquear
+  record('12. Todos os campos opcionais vazios (notes, material, finishings, contato, doc, email) passam com sucesso', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Balcão Sem Cadastro',
       customerContact: '',
@@ -336,8 +372,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 12. Acabamento selecionado sem preço bloqueia; acabamento não selecionado não bloqueia
-  record('12. Acabamento não selecionado mesmo sem preço não bloqueia', () => {
+  // 13. Acabamento não selecionado não bloqueia
+  record('13. Acabamento não selecionado mesmo sem preço não bloqueia', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -366,8 +402,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 13. Acabamento selecionado sem preço bloqueia com mensagem específica
-  record('13. Acabamento selecionado sem preço bloqueia com mensagem explicativa', () => {
+  // 14. Acabamento selecionado sem preço bloqueia
+  record('14. Acabamento selecionado sem preço bloqueia com mensagem explicativa', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -399,8 +435,8 @@ export function runQuoteValidationTests(): TestResult[] {
     }
   });
 
-  // 14. Segundo item com erro identifica item 2
-  record('14. Erro no segundo item aponta explicitamente "item 2"', () => {
+  // 15. Erro no segundo item aponta explicitamente item 2
+  record('15. Erro no segundo item aponta explicitamente "item 2"', () => {
     const params: QuoteFormValidationParams = {
       customerName: 'Cliente Teste',
       items: [
@@ -430,8 +466,8 @@ export function runQuoteValidationTests(): TestResult[] {
     if (res.field !== 'items[1].productName') {
       throw new Error(`Campo esperado items[1].productName, obtido: ${res.field}`);
     }
-    if (!res.message?.includes('item 2')) {
-      throw new Error(`Mensagem deveria citar item 2: ${res.message}`);
+    if (res.message !== 'Informe a identificação ou nome do item 2.') {
+      throw new Error(`Mensagem deveria ser 'Informe a identificação ou nome do item 2.', obtido: ${res.message}`);
     }
   });
 

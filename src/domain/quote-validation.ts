@@ -72,17 +72,11 @@ export function validateQuoteForm(params: QuoteFormValidationParams): QuoteFormV
     };
   }
 
-  // Normalização inteligente: se productName estiver vazio mas notes tiver conteúdo, usar notes
-  const sanitizedItems: QuoteFormItem[] = items.map(it => {
-    let resolvedName = (it.productName || '').trim();
-    if (!resolvedName && it.notes?.trim()) {
-      resolvedName = it.notes.trim().split('\n')[0].substring(0, 120);
-    }
-    return {
-      ...it,
-      productName: resolvedName,
-    };
-  });
+  // Preserva os itens sem copiar notes para productName
+  const sanitizedItems: QuoteFormItem[] = items.map(it => ({
+    ...it,
+    productName: (it.productName || '').trim(),
+  }));
 
   for (let index = 0; index < sanitizedItems.length; index++) {
     const it = sanitizedItems[index];
