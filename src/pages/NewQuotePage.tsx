@@ -60,6 +60,7 @@ import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
 import { calculateInstallments } from '../domain/financial-calculations';
 import { calculateItemPricing, inferPricingMode, formatItemPricingDescription } from '../domain/pricing-engine';
 import { isFinishingCompatibleWithProduct } from '../domain/product-catalog';
+import { validateQuoteForm } from '../domain/quote-validation';
 
 interface NewQuotePageProps {
   onBack: () => void;
@@ -895,84 +896,28 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim()) {
-      showNotice('Campo Obrigatório', 'Informe o nome do cliente.', 'warning');
-      return;
-    }
 
-    if (items.length === 0) {
-      showNotice('Itens Ausentes', 'Adicione pelo menos um item ao orçamento.', 'warning');
-      return;
-    }
+    const validation = validateQuoteForm({
+      customerName,
+      items,
+      catalogFinishings,
+      tenantId,
+    });
 
-    const unpricedItem = items.find(it => it.totalPriceCents <= 0 || it.unitPriceCents <= 0);
-    if (unpricedItem) {
+    if (!validation.isValid) {
       showNotice(
-        'Item Sem Preço',
-        `O item "${unpricedItem.productName || 'Personalizado'}" está sem preço definido. Informe o valor unitário manualmente para prosseguir.`,
+        validation.title || 'Campo Obrigatório',
+        validation.message || 'Verifique as informações do orçamento.',
         'warning'
       );
       return;
     }
 
-    // Validações estritas por modalidade de precificação e acabamentos
-    for (const it of items) {
-      if (!it.productName.trim()) {
-        showNotice('Item Incompleto', 'Preencha a descrição de todos os itens.', 'warning');
-        return;
-      }
-      if (!it.quantity || it.quantity <= 0 || isNaN(it.quantity)) {
-        showNotice('Quantidade Inválida', `Informe uma quantidade válida e maior que zero para "${it.productName}".`, 'warning');
-        return;
-      }
-      if (it.pricingMode === 'LOT' && (!it.lotSize || it.lotSize <= 0)) {
-        showNotice('Lote Inválido', `O tamanho do lote para "${it.productName}" deve ser maior que zero.`, 'warning');
-        return;
-      }
-      if (it.pricingMode === 'SQUARE_METER') {
-        if (!it.widthMm || it.widthMm <= 0 || !it.heightMm || it.heightMm <= 0) {
-          showNotice('Dimensões Inválidas', `Informe largura e altura válidas (maiores que zero) para "${it.productName}".`, 'warning');
-          return;
-        }
-      }
-      if (it.pricingMode === 'LINEAR_METER') {
-        const len = it.lengthMeters || (it.widthMm ? it.widthMm / 1000 : 0);
-        if (len <= 0) {
-          showNotice('Comprimento Inválido', `Informe um comprimento válido para "${it.productName}".`, 'warning');
-          return;
-        }
-      }
-
-      // Bloqueio de acabamento selecionado sem preço configurado
-      const unconfiguredSelectedFin = it.finishings.find(f => f.selected && f.priceStatus === 'NOT_CONFIGURED');
-      if (unconfiguredSelectedFin) {
-        showNotice(
-          'Acabamento Sem Preço',
-          `O acabamento "${unconfiguredSelectedFin.name}" no item "${it.productName}" está com preço não configurado. Desmarque-o ou configure seu valor no catálogo antes de salvar.`,
-          'warning'
-        );
-        return;
-      }
-
-      // Bloqueio de acabamento incompatível com o produto do item
-      if (it.productId) {
-        for (const f of it.finishings.filter(fin => fin.selected)) {
-          const catalogFin = catalogFinishings.find(cf => cf.id === f.finishingId || cf.name.toLowerCase() === f.name.toLowerCase());
-          if (catalogFin && !isFinishingCompatibleWithProduct(catalogFin, it.productId, tenantId) && !f.isRequired) {
-            showNotice(
-              'Acabamento Incompatível',
-              `O acabamento "${f.name}" no item "${it.productName}" não é compatível com este produto. Revise os acabamentos antes de salvar.`,
-              'warning'
-            );
-            return;
-          }
-        }
-      }
-    }
+    const sanitizedItems = validation.sanitizedItems || items;
 
     // Converte os itens e acabamentos selecionados de cada item preservando o snapshot
-    const formattedItems = items.map(it => {
-      const selectedFinishings: QuoteItemFinishing[] = it.finishings
+    const formattedItems = sanitizedItems.map(it => {
+      const selectedFinishings: QuoteItemFinishing[] = (it.finishings || [])
         .filter(f => f.selected)
         .map(f => ({
           finishingId: f.finishingId,
@@ -1267,13 +1212,16 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
 
                     <div className="flex-1 min-w-0">
                       {item.isCustom ? (
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap flex-1">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
+                            Identificação do Item *
+                          </label>
                           <input
                             type="text"
                             value={item.productName}
                             onChange={e => handleUpdateItem(item.id, 'productName', e.target.value)}
-                            placeholder="Descrição do produto gráfico personalizado..."
-                            className="font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none pb-0.5 min-w-[200px]"
+                            placeholder="Nome / Descrição do item (ex: Cartão de Visita, Banner 440g)..."
+                            className="font-bold text-sm text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none pb-0.5 flex-1 min-w-[220px]"
                           />
                           <select
                             value={mode}
