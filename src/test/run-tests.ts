@@ -16,6 +16,7 @@ import { runDiscountValidationTests } from './discount-validation.test';
 import { runCustomerIdNormalizationTests } from './customer-id-normalization.test';
 import { runQuoteDetailsLoadingGuardTests } from './quote-details-loading-guard.test';
 import { runPrexyonGlobalBarProfileTests } from './prexyon-global-bar-profile.test';
+import { runHelpCenterFoundationTests } from './help-center-foundation.test';
 
 async function main() {
   console.log('====================================');
@@ -37,6 +38,7 @@ async function main() {
   const customerIdNormalization = runCustomerIdNormalizationTests();
   const quoteDetailsLoadingGuard = runQuoteDetailsLoadingGuardTests();
   const globalBarProfile = await runPrexyonGlobalBarProfileTests();
+  const helpCenter = runHelpCenterFoundationTests();
 
   const ssoResults = await Promise.all(
     ssoIntegrationTests.map(async (tc) => {
@@ -90,6 +92,7 @@ async function main() {
     ...customerIdNormalization,
     ...quoteDetailsLoadingGuard,
     ...globalBarProfile,
+    ...helpCenter,
     ...ssoResults,
     ...persistenceResults,
     ...matrixResults,

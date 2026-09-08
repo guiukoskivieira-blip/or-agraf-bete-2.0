@@ -18,6 +18,7 @@ import { NewQuotePage } from './pages/NewQuotePage';
 import { CustomersPage } from './pages/CustomersPage';
 import { CatalogPage, CatalogTab } from './pages/CatalogPage';
 import { MyProfilePage } from './pages/profile/MyProfilePage';
+import { HelpCenterPage } from './pages/HelpCenterPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { QuickSearchModal } from './components/common/QuickSearchModal';
 import { LoginPage } from './pages/auth/LoginPage';
@@ -75,7 +76,7 @@ function parseCurrentRoute(): ParsedRoute {
     return { tab: 'profile', subPath: 'profile' };
   }
 
-  if (primary === 'general' || primary === 'quotes' || primary === 'customers' || primary === 'new-quote') {
+  if (primary === 'general' || primary === 'quotes' || primary === 'customers' || primary === 'new-quote' || primary === 'help') {
     return { tab: primary };
   }
 
@@ -190,6 +191,9 @@ const MainRouter: React.FC = () => {
 
       case 'profile':
         return <MyProfilePage onNavigateSettings={() => {}} />;
+
+      case 'help':
+        return <HelpCenterPage onNavigate={navigateTo} />;
 
       case 'not-found':
       default:

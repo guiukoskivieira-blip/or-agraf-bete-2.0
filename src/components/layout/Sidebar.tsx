@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, Headphones, LayoutGrid, Tags, Users } from 'lucide-react';
 import { OrcaGrafLogo } from '../common/OrcaGrafLogo';
 
-export type NavigationTab = 'general' | 'quotes' | 'customers' | 'catalog' | 'products' | 'new-quote' | 'profile' | 'profile/integrations' | 'profile/users' | 'profile/company';
+export type NavigationTab = 'general' | 'quotes' | 'customers' | 'catalog' | 'products' | 'new-quote' | 'profile' | 'help';
 interface SidebarProps { activeTab: string; onSelectTab: (tab: string) => void; onNewQuote?: () => void }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
@@ -18,14 +18,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
       <div className="mb-7 flex min-h-[86px] items-center"><OrcaGrafLogo size="lg" className="max-w-full" /></div>
       <nav className="flex-1 space-y-2" aria-label="Navegação principal">
         {items.map(item => { const Icon = item.icon; const isActive = active(item.id); return (
-          <button key={item.id} onClick={() => onSelectTab(item.id)} className={`flex w-full items-center gap-4 rounded-xl px-4 py-3.5 text-left text-[15px] font-medium transition focus-visible:ring-2 focus-visible:ring-white ${isActive ? 'bg-white/30 text-white shadow-sm' : 'text-white/90 hover:bg-white/12 hover:text-white'}`} aria-current={isActive ? 'page' : undefined}>
+          <button key={item.id} onClick={() => onSelectTab(item.id)} className={`flex w-full items-center gap-4 rounded-xl px-4 py-3.5 text-left text-[15px] font-medium transition focus-visible:ring-2 focus-visible:ring-white cursor-pointer ${isActive ? 'bg-white/30 text-white shadow-sm' : 'text-white/90 hover:bg-white/12 hover:text-white'}`} aria-current={isActive ? 'page' : undefined}>
             <Icon className="h-5 w-5 shrink-0" /><span>{item.label}</span>
           </button>
         ); })}
       </nav>
-      <button onClick={() => onSelectTab('profile')} className="mt-8 rounded-xl border border-white/70 p-4 text-left hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white">
+      <button onClick={() => onSelectTab('help')} className={`mt-8 rounded-xl border p-4 text-left transition focus-visible:ring-2 focus-visible:ring-white cursor-pointer ${activeTab === 'help' ? 'bg-white/25 border-white text-white shadow-sm' : 'border-white/70 hover:bg-white/10 text-white'}`}>
         <span className="flex items-center gap-3 text-sm font-semibold"><Headphones className="h-5 w-5" />Central de ajuda</span>
-        <span className="mt-2 block pl-8 text-xs text-white/80">Tutoriais, artigos e suporte</span>
+        <span className="mt-2 block pl-8 text-xs text-white/80">Mini Manual e suporte</span>
       </button>
     </aside>
   );
