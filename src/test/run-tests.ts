@@ -12,6 +12,7 @@ import { ssoIntegrationTests } from './sso-integration.test';
 import { persistenceIntegrationTests } from './persistence-integration.test';
 import { canonicalPermissionsMatrixTests } from './canonical-permissions-matrix.test';
 import { runQuoteValidationTests } from './quote-validation.test';
+import { runDiscountValidationTests } from './discount-validation.test';
 
 async function main() {
   console.log('====================================');
@@ -29,6 +30,7 @@ async function main() {
   const a11yResponsive = runAccessibilityResponsiveTests();
   const auth = runAuthFoundationTests();
   const quoteValidation = runQuoteValidationTests();
+  const discountValidation = runDiscountValidationTests();
 
   const ssoResults = await Promise.all(
     ssoIntegrationTests.map(async (tc) => {
@@ -78,6 +80,7 @@ async function main() {
     ...a11yResponsive,
     ...auth,
     ...quoteValidation,
+    ...discountValidation,
     ...ssoResults,
     ...persistenceResults,
     ...matrixResults,

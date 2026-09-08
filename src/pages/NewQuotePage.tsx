@@ -227,10 +227,10 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscountState | null>(null);
 
   // Inputs do formulário de desconto em digitação
-  const [discountTypeInput, setDiscountTypeInput] = useState<QuoteDiscountType>('percentage');
+  const [discountTypeInput, setDiscountTypeInput] = useState<QuoteDiscountType>('none');
   const [discountValueInput, setDiscountValueInput] = useState('');
   const [discountReasonInput, setDiscountReasonInput] = useState('');
-  const [isEditingDiscount, setIsEditingDiscount] = useState(true);
+  const [isEditingDiscount, setIsEditingDiscount] = useState(false);
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [isRemoveDiscountModalOpen, setIsRemoveDiscountModalOpen] = useState(false);
 
@@ -837,10 +837,10 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
   // Confirmar remoção de desconto
   const handleConfirmRemoveDiscount = () => {
     setAppliedDiscount(null);
-    setDiscountTypeInput('percentage');
+    setDiscountTypeInput('none');
     setDiscountValueInput('');
     setDiscountReasonInput('');
-    setIsEditingDiscount(true);
+    setIsEditingDiscount(false);
     handleCloseRemoveDiscountModal();
     setDiscountError(null);
     showNotice('Desconto Removido', 'O desconto comercial foi removido e o total original restaurado.', 'info');
@@ -1702,6 +1702,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         setDiscountTypeInput(type.id);
                         if (type.id === 'none') {
                           setDiscountValueInput('');
+                          setDiscountReasonInput('');
                         }
                         setDiscountError(null);
                       }}
@@ -1732,7 +1733,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
                         setDiscountError(null);
                       }}
                       placeholder={discountTypeInput === 'percentage' ? 'Ex: 10' : 'Ex: 25,00'}
-                      required
+                      required={discountTypeInput === 'percentage' || discountTypeInput === 'fixed'}
                     />
                     <Input
                       label="Motivo Comercial do Desconto (Opcional)"
