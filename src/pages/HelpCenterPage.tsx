@@ -1,6 +1,6 @@
 /**
  * @file HelpCenterPage.tsx
- * @description Central de Ajuda Oficial do OrçaGraf com Mini Manual (Etapa 2)
+ * @description Central de Ajuda Oficial do OrçaGraf com Mini Manual e Gerador de Relatório de Suporte
  * @route /help
  * @project OrçaGraf
  */
@@ -16,12 +16,37 @@ import {
   ShoppingBag,
   Globe,
   ChevronDown,
+  HelpCircle,
+  AlertTriangle,
+  Lightbulb,
+  MessageCircleQuestion,
+  Copy,
+  Check,
+  ShieldCheck,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { useNotification } from '../context/NotificationContext';
 
 interface HelpCenterPageProps {
   onNavigate?: (tab: string) => void;
 }
+
+type HelpCenterTab = 'manual' | 'report';
+type ReportType = 'Bug' | 'Melhoria' | 'Dúvida';
+type ReportArea =
+  | 'Dashboard'
+  | 'Clientes'
+  | 'Catálogo'
+  | 'Produtos'
+  | 'Insumos'
+  | 'Acabamentos'
+  | 'Orçamentos'
+  | 'Pedidos'
+  | 'Perfil'
+  | 'Integração Prexyon'
+  | 'Outro';
 
 interface ManualSection {
   id: string;
@@ -232,11 +257,114 @@ const MANUAL_SECTIONS: ManualSection[] = [
   },
 ];
 
+const REPORT_AREAS: ReportArea[] = [
+  'Dashboard',
+  'Clientes',
+  'Catálogo',
+  'Produtos',
+  'Insumos',
+  'Acabamentos',
+  'Orçamentos',
+  'Pedidos',
+  'Perfil',
+  'Integração Prexyon',
+  'Outro',
+];
+
 export const HelpCenterPage: React.FC<HelpCenterPageProps> = () => {
+  const { showNotice } = useNotification();
+  const [activeTab, setActiveTab] = useState<HelpCenterTab>('manual');
   const [openSectionId, setOpenSectionId] = useState<string | null>('primeiros-passos');
+
+  // Estado do formulário de Reportar
+  const [reportType, setReportType] = useState<ReportType>('Bug');
+  const [reportArea, setReportArea] = useState<ReportArea>('Orçamentos');
+  const [reportTitle, setReportTitle] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportSteps, setReportSteps] = useState('');
+  const [generatedReport, setGeneratedReport] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const toggleSection = (id: string) => {
     setOpenSectionId(prev => (prev === id ? null : id));
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      setIsCopied(true);
+      const feedback = 'Relatório copiado. Envie-o ao suporte da Prexyon.';
+      setFeedbackMessage(feedback);
+      showNotice('Relatório Copiado', feedback, 'success');
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 4000);
+    } catch {
+      showNotice('Aviso', 'Selecione e copie o texto do relatório abaixo.', 'warning');
+    }
+  };
+
+  const handleGenerateReport = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validações obrigatórias
+    if (!reportTitle.trim()) {
+      showNotice('Campo Obrigatório', 'Informe um título para o relatório.', 'warning');
+      return;
+    }
+
+    if (!reportDescription.trim()) {
+      showNotice('Campo Obrigatório', 'Preencha a descrição detalhada.', 'warning');
+      return;
+    }
+
+    if (reportType === 'Bug' && !reportSteps.trim()) {
+      showNotice('Passos Obrigatórios', 'Para relatos do tipo Bug, informe os passos para reproduzir.', 'warning');
+      return;
+    }
+
+    const timestamp = new Date().toLocaleString('pt-BR');
+    const stepsLine =
+      reportType === 'Bug'
+        ? `Passos para reproduzir:\n${reportSteps.trim()}`
+        : reportSteps.trim()
+        ? `Passos para reproduzir:\n${reportSteps.trim()}`
+        : 'Passos para reproduzir:\nN/A';
+
+    // Formato oficial do relatório local (Zero tokens, zero secrets, zero dados sensíveis)
+    const reportText = `Produto: OrçaGraf
+Tipo: ${reportType}
+Área: ${reportArea}
+Título: ${reportTitle.trim()}
+Descrição:
+${reportDescription.trim()}
+${stepsLine}
+Data/hora: ${timestamp}`;
+
+    setGeneratedReport(reportText);
+    copyToClipboard(reportText);
+  };
+
+  const handleResetForm = () => {
+    setReportTitle('');
+    setReportDescription('');
+    setReportSteps('');
+    setGeneratedReport(null);
+    setIsCopied(false);
+    setFeedbackMessage(null);
   };
 
   return (
@@ -254,93 +382,298 @@ export const HelpCenterPage: React.FC<HelpCenterPageProps> = () => {
             </p>
           </div>
         </div>
+
+        {/* Abas de Navegação Interna */}
+        <div className="flex items-center gap-2 mt-6 pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => setActiveTab('manual')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'manual'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Mini Manual</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('report')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'report'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80'
+            }`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Reportar</span>
+          </button>
+        </div>
       </div>
 
-      {/* Seção Mini Manual */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200/60">
-              <BookOpen className="w-3.5 h-3.5" />
-              Mini Manual
-            </span>
-            <span className="text-xs text-slate-500 font-medium">7 seções operacionais</span>
+      {/* Aba 1: Mini Manual */}
+      {activeTab === 'manual' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200/60">
+                <BookOpen className="w-3.5 h-3.5" />
+                Mini Manual
+              </span>
+              <span className="text-xs text-slate-500 font-medium">7 seções operacionais</span>
+            </div>
+          </div>
+
+          {/* Lista de Accordions do Mini Manual */}
+          <div className="space-y-3">
+            {MANUAL_SECTIONS.map(section => {
+              const isOpen = openSectionId === section.id;
+              const Icon = section.icon;
+
+              return (
+                <Card
+                  key={section.id}
+                  className={`p-0 overflow-hidden bg-white border transition-all ${
+                    isOpen
+                      ? 'border-emerald-400/80 shadow-xs ring-1 ring-emerald-500/20'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full p-4 sm:p-5 flex items-start sm:items-center justify-between gap-4 text-left cursor-pointer hover:bg-slate-50/50 transition-colors"
+                    aria-expanded={isOpen}
+                  >
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                      <div
+                        className={`p-2.5 rounded-xl shrink-0 transition-colors ${
+                          isOpen ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
+                            Seção {section.number}
+                          </span>
+                        </div>
+                        <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
+                          {section.title}
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5">{section.subtitle}</p>
+                      </div>
+                    </div>
+
+                    <ChevronDown
+                      className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-emerald-600' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-4 pb-5 sm:px-5 border-t border-slate-100 bg-slate-50/30 space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed pt-4">
+                      {section.topics.map((topic, topicIdx) => (
+                        <div key={topicIdx} className="space-y-2">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                            {topic.title}
+                          </h3>
+                          <ul className="space-y-1.5 pl-1">
+                            {topic.points.map((point, pointIdx) => (
+                              <li key={pointIdx} className="flex items-start gap-2 text-xs text-slate-600">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
+                                <span className="leading-normal">{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </div>
+      )}
 
-        {/* Lista de Accordions do Mini Manual */}
-        <div className="space-y-3">
-          {MANUAL_SECTIONS.map(section => {
-            const isOpen = openSectionId === section.id;
-            const Icon = section.icon;
+      {/* Aba 2: Reportar */}
+      {activeTab === 'report' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-5">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Reportar Problema, Melhoria ou Dúvida</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Gere um relatório local formatado para enviar diretamente ao suporte da Prexyon.
+              </p>
+            </div>
 
-            return (
-              <Card
-                key={section.id}
-                className={`p-0 overflow-hidden bg-white border transition-all ${
-                  isOpen
-                    ? 'border-emerald-400/80 shadow-xs ring-1 ring-emerald-500/20'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full p-4 sm:p-5 flex items-start sm:items-center justify-between gap-4 text-left cursor-pointer hover:bg-slate-50/50 transition-colors"
-                  aria-expanded={isOpen}
-                >
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                    <div
-                      className={`p-2.5 rounded-xl shrink-0 transition-colors ${
-                        isOpen ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700'
+            <form onSubmit={handleGenerateReport} className="space-y-4">
+              {/* Tipo */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Tipo *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['Bug', 'Melhoria', 'Dúvida'] as ReportType[]).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setReportType(t)}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        reportType === t
+                          ? t === 'Bug'
+                            ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
+                            : t === 'Melhoria'
+                            ? 'bg-amber-50 border-amber-400 text-amber-800 shadow-xs'
+                            : 'bg-sky-50 border-sky-400 text-sky-800 shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
-                          Seção {section.number}
-                        </span>
-                      </div>
-                      <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
-                        {section.title}
-                      </h2>
-                      <p className="text-xs text-slate-500 mt-0.5">{section.subtitle}</p>
-                    </div>
-                  </div>
+                      {t === 'Bug' ? (
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      ) : t === 'Melhoria' ? (
+                        <Lightbulb className="w-3.5 h-3.5" />
+                      ) : (
+                        <MessageCircleQuestion className="w-3.5 h-3.5" />
+                      )}
+                      <span>{t}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  <ChevronDown
-                    className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-emerald-600' : ''
-                    }`}
-                  />
-                </button>
-
-                {isOpen && (
-                  <div className="px-4 pb-5 sm:px-5 border-t border-slate-100 bg-slate-50/30 space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed pt-4">
-                    {section.topics.map((topic, topicIdx) => (
-                      <div key={topicIdx} className="space-y-2">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                          {topic.title}
-                        </h3>
-                        <ul className="space-y-1.5 pl-1">
-                          {topic.points.map((point, pointIdx) => (
-                            <li key={pointIdx} className="flex items-start gap-2 text-xs text-slate-600">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
-                              <span className="leading-normal">{point}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+              {/* Área e Título */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Área *
+                  </label>
+                  <select
+                    value={reportArea}
+                    onChange={e => setReportArea(e.target.value as ReportArea)}
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  >
+                    {REPORT_AREAS.map(area => (
+                      <option key={area} value={area}>
+                        {area}
+                      </option>
                     ))}
-                  </div>
+                  </select>
+                </div>
+
+                <div>
+                  <Input
+                    label="Título *"
+                    value={reportTitle}
+                    onChange={e => setReportTitle(e.target.value)}
+                    placeholder="Ex: Erro no cálculo de acabamento"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Descrição *
+                </label>
+                <textarea
+                  rows={4}
+                  value={reportDescription}
+                  onChange={e => setReportDescription(e.target.value)}
+                  placeholder="Descreva detalhadamente a situação, melhoria ou dúvida..."
+                  className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  required
+                />
+              </div>
+
+              {/* Passos para reproduzir (Exibido para Bug como obrigatório, e para outros como opcional) */}
+              {reportType === 'Bug' ? (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Passos para reproduzir *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={reportSteps}
+                    onChange={e => setReportSteps(e.target.value)}
+                    placeholder="1. Acessei o menu Orçamentos&#10;2. Cliquei em Novo Orçamento&#10;3. Ocorreu o erro..."
+                    className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Passos para reproduzir (Opcional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={reportSteps}
+                    onChange={e => setReportSteps(e.target.value)}
+                    placeholder="Passos adicionais ou contexto complementar..."
+                    className="w-full p-3 text-xs rounded-xl bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  />
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                {generatedReport && (
+                  <Button type="button" variant="ghost" size="sm" onClick={handleResetForm}>
+                    Limpar
+                  </Button>
                 )}
-              </Card>
-            );
-          })}
+                <Button type="submit" variant="primary" icon={<Copy className="w-4 h-4" />}>
+                  Copiar relatório
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          {/* Feedback e Relatório Gerado Localmente */}
+          {generatedReport && (
+            <Card className="p-6 bg-slate-900 text-white border-slate-800 shadow-md space-y-3.5 animate-in fade-in duration-150">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                    Relatório Gerado Localmente
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white border-transparent text-xs font-bold"
+                  icon={isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  onClick={() => copyToClipboard(generatedReport)}
+                >
+                  {isCopied ? 'Copiado!' : 'Copiar relatório'}
+                </Button>
+              </div>
+
+              {feedbackMessage && (
+                <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-600/50 text-xs text-emerald-300 font-medium">
+                  {feedbackMessage}
+                </div>
+              )}
+
+              <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">
+                {generatedReport}
+              </pre>
+
+              <p className="text-[11px] text-slate-400 text-center">
+                Relatório gerado localmente no navegador. Não contém dados sensíveis nem credenciais de acesso.
+              </p>
+            </Card>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
