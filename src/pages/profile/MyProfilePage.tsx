@@ -232,7 +232,10 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
                 size="sm"
                 className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                 icon={<LogOut className="w-3.5 h-3.5" />}
-                onClick={() => signOut()}
+                onClick={async () => {
+                  await signOut();
+                  window.location.href = portalUrl;
+                }}
               >
                 Sair da Conta
               </Button>

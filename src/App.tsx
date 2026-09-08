@@ -18,8 +18,6 @@ import { NewQuotePage } from './pages/NewQuotePage';
 import { CustomersPage } from './pages/CustomersPage';
 import { CatalogPage, CatalogTab } from './pages/CatalogPage';
 import { MyProfilePage } from './pages/profile/MyProfilePage';
-import { IntegrationsPage } from './pages/profile/IntegrationsPage';
-import { CompanyDataPage } from './pages/profile/CompanyDataPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { QuickSearchModal } from './components/common/QuickSearchModal';
 import { LoginPage } from './pages/auth/LoginPage';
@@ -191,41 +189,7 @@ const MainRouter: React.FC = () => {
       }
 
       case 'profile':
-        if (route.subPath === 'integrations') {
-          const canIntegrations =
-            currentUser.role === 'owner' ||
-            currentUser.role === 'admin' ||
-            checkPermission('integrations', 'view');
-
-          if (!canIntegrations) {
-            return (
-              <AccessDeniedView
-                message="Você não possui permissão para gerenciar as configurações e integrações desta organização."
-                onGoBack={() => navigateTo('general')}
-              />
-            );
-          }
-          return <IntegrationsPage onNavigateSettings={tab => navigateTo(`profile/${tab === 'profile' ? '' : tab}`)} />;
-        }
-
-        if (route.subPath === 'company') {
-          const canCompany =
-            currentUser.role === 'owner' ||
-            currentUser.role === 'admin' ||
-            checkPermission('settings', 'view');
-
-          if (!canCompany) {
-            return (
-              <AccessDeniedView
-                message="Você não possui permissão para acessar os dados fiscais e cadastrais da gráfica."
-                onGoBack={() => navigateTo('general')}
-              />
-            );
-          }
-          return <CompanyDataPage onNavigateSettings={tab => navigateTo(`profile/${tab === 'profile' ? '' : tab}`)} />;
-        }
-
-        return <MyProfilePage onNavigateSettings={tab => navigateTo(`profile/${tab === 'profile' ? '' : tab}`)} />;
+        return <MyProfilePage onNavigateSettings={() => {}} />;
 
       case 'not-found':
       default:

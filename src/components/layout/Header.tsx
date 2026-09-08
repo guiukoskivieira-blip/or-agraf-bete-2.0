@@ -170,6 +170,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenProfile 
   const handleSignOut = async () => {
     setIsUserMenuOpen(false);
     await signOut();
+    window.location.href = portalUrl;
   };
 
   return (

@@ -1,6 +1,6 @@
 /**
  * @file prexyon-global-bar-profile.test.ts
- * @description Testes direcionados para a Barra Global Prexyon e Telas de Conta/Perfil
+ * @description Testes direcionados para a Barra Global Prexyon, Perfil Enxuto e Logout Prexyon
  * @project OrçaGraf
  */
 
@@ -19,23 +19,24 @@ export async function runPrexyonGlobalBarProfileTests(): Promise<TestResult[]> {
   const results: TestResult[] = [];
   const assert = (condition: boolean, testName: string, errorMsg?: string) =>
     results.push({
-      suiteName: 'Barra Global Prexyon & Perfil (Hotfix 1)',
+      suiteName: 'Barra Global Prexyon & Perfil Enxuto (Hotfix 1)',
       testName,
       passed: condition,
       error: condition ? undefined : errorMsg || 'Assertion failed',
     });
 
-  // 1. Verificação de abas permitidas no SettingsLayout
-  const validTabs: SettingsTab[] = ['profile', 'integrations', 'company'];
-  const testTab: string = 'users';
-  const isUsersAllowedAsSettingsTab = (validTabs as string[]).includes(testTab);
+  // 1. Verificação de Perfil Enxuto (remoção de abas locais: users, company, integrations)
+  const validTabs: SettingsTab[] = ['profile'];
+  const testTabs: string[] = ['users', 'company', 'integrations'];
+  testTabs.forEach(tab => {
+    assert(
+      !(validTabs as string[]).includes(tab),
+      `Aba local "${tab}" foi removida da UI de configurações`
+    );
+  });
   assert(
-    !isUsersAllowedAsSettingsTab,
-    'Aba "users" (Usuários e Permissões) foi removida do SettingsTab'
-  );
-  assert(
-    validTabs.includes('profile') && validTabs.includes('integrations') && validTabs.includes('company'),
-    'Abas essenciais (Meu Perfil, Integrações, Dados da Gráfica) foram preservadas'
+    validTabs.includes('profile') && validTabs.length === 1,
+    'Perfil enxuto mantendo exclusivamente a página de Meu Perfil'
   );
 
   // 2. Verificação de Configurações de Runtime do Portal Prexyon
@@ -50,19 +51,24 @@ export async function runPrexyonGlobalBarProfileTests(): Promise<TestResult[]> {
   );
   assert(
     config.productUrls.arteflow === 'https://arteflow.app',
-    'URL do ArteFlow resolvida corretamente na configuração de runtime'
+    'Product Switch: ArteFlow mapeado para configuração de runtime'
   );
   assert(
     config.productUrls.artecheck === 'https://artecheck.app',
-    'URL do ArteCheck resolvida corretamente na configuração de runtime'
+    'Product Switch: ArteCheck mapeado para configuração de runtime'
   );
 
-  // 3. Verificação do fluxo de SSO V2 para troca de produtos
+  // 3. Verificação do fluxo de SSO V2 para troca de produtos (sem URLs diretas)
   try {
-    const result = await generateProductRedirect('arteflow');
+    const resultArteFlow = await generateProductRedirect('arteflow');
     assert(
-      typeof result === 'object' && typeof result.success === 'boolean',
-      'generateProductRedirect executa com segurança retornando objeto tipado'
+      typeof resultArteFlow === 'object' && typeof resultArteFlow.success === 'boolean',
+      'Troca para ArteFlow usa Edge Function SSO V2'
+    );
+    const resultArteCheck = await generateProductRedirect('artecheck');
+    assert(
+      typeof resultArteCheck === 'object' && typeof resultArteCheck.success === 'boolean',
+      'Troca para ArteCheck usa Edge Function SSO V2'
     );
   } catch (err: any) {
     assert(false, 'generateProductRedirect falhou com exceção', err?.message);
