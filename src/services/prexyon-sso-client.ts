@@ -170,12 +170,21 @@ export const prexyonSsoClient = {
     }
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       const { data, error } = await supabase.functions.invoke('prexyon-sso-generate', {
         body: {
           target_product: targetProduct,
           audience: targetProduct,
           target_organization_id: targetOrganizationId,
         },
+        headers,
       });
 
       if (error || !data || data.success === false) {
