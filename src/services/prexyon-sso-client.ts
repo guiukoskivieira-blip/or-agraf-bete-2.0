@@ -155,4 +155,58 @@ export const prexyonSsoClient = {
       };
     }
   },
+
+  /**
+   * Gera código de autorização Prexyon SSO V2 via Edge Function central
+   * e constrói a URL de redirecionamento para o produto destino.
+   */
+  async generateProductRedirect(
+    targetProduct: 'arteflow' | 'artecheck' | 'orcagraf',
+    targetOrganizationId?: string
+  ): Promise<{ success: boolean; code?: string; redirectUrl?: string; error?: string }> {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return { success: false, error: 'Cliente de autenticação não inicializado.' };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('prexyon-sso-generate', {
+        body: {
+          target_product: targetProduct,
+          target_organization_id: targetOrganizationId,
+        },
+      });
+
+      if (error || !data || data.success === false) {
+        return {
+          success: false,
+          error: data?.error || error?.message || 'Falha ao gerar chave de acesso entre produtos.',
+        };
+      }
+
+      if (data.redirect_url) {
+        return { success: true, redirectUrl: data.redirect_url };
+      }
+
+      const code = data.code || data.authorization_code;
+      if (!code) {
+        return { success: false, error: 'Código de autorização não retornado pelo servidor.' };
+      }
+
+      return { success: true, code };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Erro ao conectar ao serviço de autorização Prexyon SSO.',
+      };
+    }
+  },
 };
+
+export async function generateProductRedirect(
+  targetProduct: 'arteflow' | 'artecheck' | 'orcagraf',
+  targetOrganizationId?: string
+) {
+  return prexyonSsoClient.generateProductRedirect(targetProduct, targetOrganizationId);
+}
+

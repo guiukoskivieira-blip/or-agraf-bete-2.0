@@ -8,13 +8,11 @@ import React from 'react';
 import {
   User as UserIcon,
   MessageSquare,
-  Shield,
   Building2,
-  Lock,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 
-export type SettingsTab = 'profile' | 'integrations' | 'users' | 'company';
+export type SettingsTab = 'profile' | 'integrations' | 'company';
 
 interface SettingsLayoutProps {
   activeTab: SettingsTab;
@@ -34,7 +32,6 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   const { currentUser, checkPermission } = useTenant();
 
   const isOwnerOrAdmin = currentUser.role === 'owner' || currentUser.role === 'admin';
-  const canManageUsers = isOwnerOrAdmin || checkPermission('users_permissions', 'view');
   const canManageCompany = isOwnerOrAdmin || checkPermission('settings', 'view');
   const canManageIntegrations = isOwnerOrAdmin || checkPermission('integrations', 'view');
 
@@ -52,13 +49,6 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
       icon: MessageSquare,
       allowed: canManageIntegrations,
       path: '/profile/integrations',
-    },
-    {
-      id: 'users' as SettingsTab,
-      label: 'Usuários e Permissões',
-      icon: Shield,
-      allowed: canManageUsers,
-      path: '/profile/users',
     },
     {
       id: 'company' as SettingsTab,

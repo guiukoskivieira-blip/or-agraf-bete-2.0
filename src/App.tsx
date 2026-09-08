@@ -19,7 +19,6 @@ import { CustomersPage } from './pages/CustomersPage';
 import { CatalogPage, CatalogTab } from './pages/CatalogPage';
 import { MyProfilePage } from './pages/profile/MyProfilePage';
 import { IntegrationsPage } from './pages/profile/IntegrationsPage';
-import { UsersPermissionsPage } from './pages/profile/UsersPermissionsPage';
 import { CompanyDataPage } from './pages/profile/CompanyDataPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { QuickSearchModal } from './components/common/QuickSearchModal';
@@ -207,23 +206,6 @@ const MainRouter: React.FC = () => {
             );
           }
           return <IntegrationsPage onNavigateSettings={tab => navigateTo(`profile/${tab === 'profile' ? '' : tab}`)} />;
-        }
-
-        if (route.subPath === 'users') {
-          const canUsers =
-            currentUser.role === 'owner' ||
-            currentUser.role === 'admin' ||
-            checkPermission('users_permissions', 'view');
-
-          if (!canUsers) {
-            return (
-              <AccessDeniedView
-                message="Você não possui permissão para gerenciar os usuários e permissões da gráfica."
-                onGoBack={() => navigateTo('general')}
-              />
-            );
-          }
-          return <UsersPermissionsPage onNavigateSettings={tab => navigateTo(`profile/${tab === 'profile' ? '' : tab}`)} />;
         }
 
         if (route.subPath === 'company') {

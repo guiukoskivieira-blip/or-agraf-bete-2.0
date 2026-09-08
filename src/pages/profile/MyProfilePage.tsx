@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Camera, Trash2, Save, User as UserIcon, Lock, LogOut } from 'lucide-react';
+import { Camera, Trash2, Save, User as UserIcon, Lock, LogOut, Users, ExternalLink } from 'lucide-react';
 import { SettingsLayout, SettingsTab } from '../../components/layout/SettingsLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -14,6 +14,7 @@ import { Input } from '../../components/ui/Input';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
+import { getPrexyonRuntimeConfig } from '../../config/prexyon';
 
 interface MyProfilePageProps {
   onNavigateSettings: (tab: SettingsTab) => void;
@@ -28,6 +29,9 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
   const [email, setEmail] = useState(currentUser.email);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(currentUser.avatarUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const runtimeConfig = getPrexyonRuntimeConfig();
+  const portalUrl = runtimeConfig.portalUrl || (import.meta.env.VITE_PREXYON_PORTAL_URL as string) || 'https://prexyon-production.up.railway.app';
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,13 +85,40 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
       title="Meu Perfil"
       description="Gerencie seus dados de acesso, foto de perfil e informações pessoais no OrçaGraf."
     >
-      <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
-        <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
-            <div className="flex items-center gap-2">
-              <UserIcon className="w-4 h-4 text-emerald-600" />
-              <h2 className="text-sm font-bold uppercase tracking-wider">Identificação do Usuário</h2>
+      <div className="space-y-6 max-w-4xl">
+        {/* Banner Informativo Prexyon: Gestão de Equipe e Permissões */}
+        <div className="p-4 rounded-xl bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-slate-800 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0">
+              <Users className="w-5 h-5" />
             </div>
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Gestão de Equipe e Permissões
+              </p>
+              <p className="text-xs text-slate-300">
+                Os membros da sua equipe, convites e papéis de acesso são gerenciados centralmente pelo Portal Prexyon.
+              </p>
+            </div>
+          </div>
+          <a
+            href={portalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shrink-0 transition-colors shadow-xs"
+          >
+            <span>Gerenciar no Portal</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-6">
+          <Card className="p-6 bg-white border-slate-200 shadow-xs space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
+              <div className="flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-emerald-600" />
+                <h2 className="text-sm font-bold uppercase tracking-wider">Identificação do Usuário</h2>
+              </div>
             {currentUser.dataOrigin === 'demo' && (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                 Usuário demonstrativo
@@ -213,6 +244,7 @@ export const MyProfilePage: React.FC<MyProfilePageProps> = ({ onNavigateSettings
           </div>
         </Card>
       </form>
+      </div>
     </SettingsLayout>
   );
 };
