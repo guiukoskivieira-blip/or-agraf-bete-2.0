@@ -200,8 +200,8 @@ export function runInitialCatalogBootstrapTests(): TestResult[] {
     const contextPath = path.resolve(__dirname, '../context/CommercialContext.tsx');
     const contextContent = fs.readFileSync(contextPath, 'utf-8');
 
-    const callsBootstrapBeforeLoad = contextContent.includes('productRepository.bootstrapCatalog(tenantId)') &&
-                                     contextContent.indexOf('productRepository.bootstrapCatalog(tenantId)') < contextContent.indexOf('productRepository.listProducts(tenantId)');
+    const callsBootstrapBeforeLoad = (contextContent.includes('productRepository.bootstrapCatalog(validTenantUuid)') || contextContent.includes('productRepository.bootstrapCatalog(tenantId)')) &&
+                                     contextContent.indexOf('productRepository.bootstrapCatalog') < contextContent.indexOf('productRepository.listProducts');
     results.push({
       suiteName,
       testName: '13. CommercialContext aciona bootstrapCatalog antes de carregar o catálogo de produtos',

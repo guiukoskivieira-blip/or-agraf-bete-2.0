@@ -92,19 +92,22 @@ function mapRowToFinishing(row: any): Finishing {
   };
 }
 
+import { normalizeUuid } from '../domain/quote-validation';
+
 export class ProductRepository {
   // =========================================================================
   // BOOTSTRAP DE CATÁLOGO INICIAL (IDEMPOTENTE)
   // =========================================================================
   async bootstrapCatalog(tenantId: string): Promise<{ success: boolean; status?: string; error?: string }> {
-    if (!tenantId) return { success: false, error: 'Tenant inválido.' };
+    const validUuid = normalizeUuid(tenantId);
+    if (!validUuid) return { success: false, error: 'Tenant UUID inválido para bootstrap.' };
 
     if (isModeConnected && isSupabaseConfigured()) {
       const supabase = getSupabaseClient();
       if (!supabase) return { success: false, error: 'Supabase indisponível.' };
 
       const { data, error } = await supabase.rpc('bootstrap_tenant_catalog', {
-        p_organization_id: tenantId,
+        p_organization_id: validUuid,
       });
 
       if (error) {

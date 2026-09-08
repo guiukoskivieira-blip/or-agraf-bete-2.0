@@ -380,28 +380,37 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
     if (!tenantId) return;
 
     if (isModeConnected && isSupabaseConfigured()) {
+      const validTenantUuid = normalizeUuid(tenantId);
+      // Aguarda a resolução do tenant real vindo do bootstrap autoritativo
+      if (!validTenantUuid) {
+        return;
+      }
+
       setIsLoadingCommercial(true);
       setCommercialError(null);
       try {
         // Tenta executar o bootstrap inicial via RPC atômica (idempotente)
-        try {
-          await productRepository.bootstrapCatalog(tenantId);
-        } catch (bootErr) {
-          console.warn('[CommercialContext] Aviso no bootstrap de catálogo:', bootErr);
+        const bootResult = await productRepository.bootstrapCatalog(validTenantUuid);
+        if (!bootResult.success && bootResult.error) {
+          console.warn('[CommercialContext] Aviso no bootstrap de catálogo:', bootResult.error);
         }
 
         const [loadedQuotes, loadedProds, loadedMats, loadedFins, loadedCusts] = await Promise.all([
-          quoteRepository.listQuotes(tenantId),
-          productRepository.listProducts(tenantId),
-          productRepository.listMaterials(tenantId),
-          productRepository.listFinishings(tenantId),
-          customerRepository.list(tenantId),
+          quoteRepository.listQuotes(validTenantUuid),
+          productRepository.listProducts(validTenantUuid),
+          productRepository.listMaterials(validTenantUuid),
+          productRepository.listFinishings(validTenantUuid),
+          customerRepository.list(validTenantUuid),
         ]);
         setQuotesList(loadedQuotes);
         setAllProducts(loadedProds);
         setAllMaterials(loadedMats);
         setAllFinishings(loadedFins);
         setCustomersList(loadedCusts);
+
+        if (loadedProds.length === 0 && !bootResult.success && bootResult.error) {
+          setCommercialError('Falha ao inicializar o catálogo padrão da organização.');
+        }
       } catch (err: any) {
         console.error('[CommercialContext] Erro ao carregar dados do Supabase:', err);
         setCommercialError(err?.message || 'Erro ao carregar dados comerciais do servidor.');
