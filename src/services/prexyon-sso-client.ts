@@ -157,57 +157,76 @@ export const prexyonSsoClient = {
   },
 
   /**
-   * Gera código de autorização Prexyon SSO V2 via Edge Function central
-   * e constrói a URL de redirecionamento para o produto destino.
+   * Gera código de autorização Prexyon SSO V2 via RPC canônica public.prexyon_generate_sso_code
+   * e retorna o código para redirecionamento ao endpoint /auth/prexyon do produto destino.
    */
   async generateProductRedirect(
     targetProduct: 'arteflow' | 'artecheck' | 'orcagraf',
     targetOrganizationId?: string
   ): Promise<{ success: boolean; code?: string; redirectUrl?: string; error?: string }> {
+    if (targetProduct === 'orcagraf') {
+      return { success: false, error: 'O produto selecionado já é o produto ativo.' };
+    }
+
+    if (!targetOrganizationId || typeof targetOrganizationId !== 'string' || targetOrganizationId.trim() === '') {
+      return {
+        success: false,
+        error: 'Organização ativa não identificada para realizar a troca de produto.',
+      };
+    }
+
     const supabase = getSupabaseClient();
     if (!supabase) {
-      return { success: false, error: 'Cliente de autenticação não inicializado.' };
+      return { success: false, error: 'Serviço de autenticação não inicializado.' };
     }
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      const headers: Record<string, string> = {};
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      const { data, error } = await supabase.functions.invoke('prexyon-sso-generate', {
-        body: {
-          target_product: targetProduct,
-          audience: targetProduct,
-          target_organization_id: targetOrganizationId,
-        },
-        headers,
+      // Executa a RPC canônica homologada no ecossistema Prexyon
+      const { data, error } = await supabase.rpc('prexyon_generate_sso_code', {
+        p_organization_id: targetOrganizationId.trim(),
+        p_product_code: targetProduct,
       });
 
-      if (error || !data || data.success === false) {
+      if (error) {
         return {
           success: false,
-          error: data?.error || error?.message || 'Falha ao gerar chave de acesso entre produtos.',
+          error: 'Não foi possível gerar a autorização de acesso para o software selecionado.',
         };
       }
 
-      if (data.redirect_url) {
-        return { success: true, redirectUrl: data.redirect_url };
+      // Interpreta o retorno da RPC (suporta retorno em formato texto direto ou JSON)
+      let ssoCode: string | undefined;
+      let redirectUrl: string | undefined;
+
+      if (typeof data === 'string' && data.trim() !== '') {
+        ssoCode = data.trim();
+      } else if (data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>;
+        if (typeof obj.redirect_url === 'string' && obj.redirect_url.trim() !== '') {
+          redirectUrl = obj.redirect_url.trim();
+        }
+        const candidate = obj.code || obj.sso_code || obj.authorization_code || obj.token;
+        if (typeof candidate === 'string' && candidate.trim() !== '') {
+          ssoCode = candidate.trim();
+        }
       }
 
-      const code = data.code || data.authorization_code;
-      if (!code) {
-        return { success: false, error: 'Código de autorização não retornado pelo servidor.' };
+      if (!ssoCode && !redirectUrl) {
+        return {
+          success: false,
+          error: 'Código de autorização não retornado pelo servidor.',
+        };
       }
 
-      return { success: true, code };
-    } catch (err: any) {
+      return {
+        success: true,
+        code: ssoCode,
+        redirectUrl,
+      };
+    } catch {
       return {
         success: false,
-        error: err.message || 'Erro ao conectar ao serviço de autorização Prexyon SSO.',
+        error: 'Falha de comunicação ao conectar ao serviço de autorização Prexyon SSO.',
       };
     }
   },

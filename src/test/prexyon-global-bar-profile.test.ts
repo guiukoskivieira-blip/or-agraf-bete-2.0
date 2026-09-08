@@ -1,13 +1,13 @@
 /**
  * @file prexyon-global-bar-profile.test.ts
- * @description Testes direcionados para a Barra Global Prexyon, Perfil Enxuto, Logout Prexyon e Validação de Variáveis
+ * @description Testes direcionados para a Barra Global Prexyon, Perfil Enxuto, Logout Prexyon e RPC SSO V2 Canônica
  * @project OrçaGraf
  */
 
 import fs from 'fs';
 import path from 'path';
 import { getPrexyonRuntimeConfig } from '../config/prexyon';
-import { generateProductRedirect } from '../services/prexyon-sso-client';
+import { generateProductRedirect, prexyonSsoClient } from '../services/prexyon-sso-client';
 import { SettingsTab } from '../components/layout/SettingsLayout';
 
 export interface TestResult {
@@ -21,7 +21,7 @@ export async function runPrexyonGlobalBarProfileTests(): Promise<TestResult[]> {
   const results: TestResult[] = [];
   const assert = (condition: boolean, testName: string, errorMsg?: string) =>
     results.push({
-      suiteName: 'Barra Global Prexyon & Perfil Enxuto (Hotfix 1)',
+      suiteName: 'Barra Global Prexyon & SSO V2 Canônico (Hotfix Final)',
       testName,
       passed: condition,
       error: condition ? undefined : errorMsg || 'Assertion failed',
@@ -80,21 +80,45 @@ export async function runPrexyonGlobalBarProfileTests(): Promise<TestResult[]> {
     'Asset oficial da logo Prexyon presente no repositório com integridade confirmada'
   );
 
-  // 4. Verificação do fluxo de SSO V2 para troca de produtos (sem URLs diretas)
-  try {
-    const resultArteFlow = await generateProductRedirect('arteflow');
-    assert(
-      typeof resultArteFlow === 'object' && typeof resultArteFlow.success === 'boolean',
-      'Troca para ArteFlow usa Edge Function SSO V2 com audience correta'
-    );
-    const resultArteCheck = await generateProductRedirect('artecheck');
-    assert(
-      typeof resultArteCheck === 'object' && typeof resultArteCheck.success === 'boolean',
-      'Troca para ArteCheck usa Edge Function SSO V2 com audience correta'
-    );
-  } catch (err: any) {
-    assert(false, 'generateProductRedirect falhou com exceção', err?.message);
-  }
+  // 4. Verificação Estrita: Ausência total de referências a prexyon-sso-generate
+  const ssoClientPath = path.resolve(process.cwd(), 'src/services/prexyon-sso-client.ts');
+  const ssoClientCode = fs.readFileSync(ssoClientPath, 'utf-8');
+  assert(
+    !ssoClientCode.includes('prexyon-sso-generate'),
+    'Referência à Edge Function inexistente prexyon-sso-generate removida completamente'
+  );
+  assert(
+    ssoClientCode.includes('prexyon_generate_sso_code'),
+    'Chamada atualizada para RPC canônica public.prexyon_generate_sso_code'
+  );
+
+  // 5. Testes Comportamentais de generateProductRedirect
+  // a) Produto atual OrçaGraf não gera SSO desnecessário
+  const selfSwitch = await prexyonSsoClient.generateProductRedirect('orcagraf', 'org_123');
+  assert(
+    selfSwitch.success === false && selfSwitch.error?.includes('já é o produto ativo'),
+    'Troca para produto atual (OrçaGraf) rejeitada sem acionar RPC'
+  );
+
+  // b) Ausência de organization_id falha de forma segura
+  const missingOrgSwitch = await prexyonSsoClient.generateProductRedirect('arteflow', '');
+  assert(
+    missingOrgSwitch.success === false && missingOrgSwitch.error?.includes('não identificada'),
+    'Troca sem organization_id falha de forma segura e amigável'
+  );
+
+  // c) Chamadas para ArteFlow e ArteCheck retornam objeto com interface tipada
+  const resArteFlow = await generateProductRedirect('arteflow', 'org_123');
+  assert(
+    typeof resArteFlow === 'object' && typeof resArteFlow.success === 'boolean',
+    'generateProductRedirect para ArteFlow executa com contrato tipado'
+  );
+
+  const resArteCheck = await generateProductRedirect('artecheck', 'org_123');
+  assert(
+    typeof resArteCheck === 'object' && typeof resArteCheck.success === 'boolean',
+    'generateProductRedirect para ArteCheck executa com contrato tipado'
+  );
 
   return results;
 }
