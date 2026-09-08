@@ -94,6 +94,31 @@ function mapRowToFinishing(row: any): Finishing {
 
 export class ProductRepository {
   // =========================================================================
+  // BOOTSTRAP DE CATÁLOGO INICIAL (IDEMPOTENTE)
+  // =========================================================================
+  async bootstrapCatalog(tenantId: string): Promise<{ success: boolean; status?: string; error?: string }> {
+    if (!tenantId) return { success: false, error: 'Tenant inválido.' };
+
+    if (isModeConnected && isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (!supabase) return { success: false, error: 'Supabase indisponível.' };
+
+      const { data, error } = await supabase.rpc('bootstrap_tenant_catalog', {
+        p_organization_id: tenantId,
+      });
+
+      if (error) {
+        console.warn('[ProductRepository.bootstrapCatalog] RPC retornou erro:', error.message);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, status: data?.status };
+    }
+
+    return { success: true, status: 'NOOP' };
+  }
+
+  // =========================================================================
   // PRODUTOS
   // =========================================================================
   async listProducts(tenantId: string): Promise<Product[]> {

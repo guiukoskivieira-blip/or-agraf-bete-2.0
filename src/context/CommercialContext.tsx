@@ -383,6 +383,13 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       setIsLoadingCommercial(true);
       setCommercialError(null);
       try {
+        // Tenta executar o bootstrap inicial via RPC atômica (idempotente)
+        try {
+          await productRepository.bootstrapCatalog(tenantId);
+        } catch (bootErr) {
+          console.warn('[CommercialContext] Aviso no bootstrap de catálogo:', bootErr);
+        }
+
         const [loadedQuotes, loadedProds, loadedMats, loadedFins, loadedCusts] = await Promise.all([
           quoteRepository.listQuotes(tenantId),
           productRepository.listProducts(tenantId),
