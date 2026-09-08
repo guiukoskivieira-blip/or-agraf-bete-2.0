@@ -6,6 +6,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured, isModeConnected } from '../services/supabase-client';
 import { Quote, QuoteItem, QuoteEvent, QuoteVersion, QuoteDiscount } from '../types/quote';
+import { normalizeUuid } from '../domain/quote-validation';
 
 // In-Memory Storage para modo standalone e testes
 const inMemoryQuotes: Map<string, Quote[]> = new Map();
@@ -188,7 +189,7 @@ export class QuoteRepository {
 
       // Monta payload do cabeçalho
       const quotePayload = {
-        customer_id: quote.customerId || null,
+        customer_id: normalizeUuid(quote.customerId),
         customer_name: quote.customerName || 'Consumidor Final',
         customer_document: quote.customerDocument || null,
         customer_contact: quote.customerContact || null,
@@ -207,13 +208,13 @@ export class QuoteRepository {
         production_days: quote.estimatedProductionDays || 3,
         internal_notes: quote.paymentTerms || null,
         customer_notes: null,
-        seller_id: quote.sellerId || quote.salespersonId || null,
+        seller_id: normalizeUuid(quote.sellerId || quote.salespersonId),
         seller_name: quote.sellerName || quote.salespersonName || null,
       };
 
       // Monta payload dos itens e acabamentos
       const itemsPayload = items.map(item => ({
-        product_id: item.productId || null,
+        product_id: normalizeUuid(item.productId),
         product_name: item.productName,
         pricing_mode: item.pricingMode || 'UNIT',
         quantity: item.quantity,
@@ -230,7 +231,7 @@ export class QuoteRepository {
         material_name: item.materialName || null,
         notes: item.notes || null,
         finishings: (item.finishings || []).map(f => ({
-          finishing_id: f.finishingId || null,
+          finishing_id: normalizeUuid(f.finishingId),
           name: f.name,
           pricing_basis: f.pricingBasis || 'FIXED',
           price_status: f.priceStatus || 'CONFIGURED',
@@ -331,7 +332,7 @@ export class QuoteRepository {
       if (!supabase) return { success: false, error: 'Supabase indisponível.' };
 
       const quotePayload = {
-        customer_id: quote.customerId || null,
+        customer_id: normalizeUuid(quote.customerId),
         customer_name: quote.customerName,
         customer_document: quote.customerDocument || null,
         customer_contact: quote.customerContact || null,
@@ -346,12 +347,12 @@ export class QuoteRepository {
         installments_json: quote.financialTerms?.installments,
         production_days: quote.estimatedProductionDays,
         internal_notes: quote.paymentTerms,
-        seller_id: quote.sellerId || quote.salespersonId,
+        seller_id: normalizeUuid(quote.sellerId || quote.salespersonId),
         seller_name: quote.sellerName || quote.salespersonName,
       };
 
       const itemsPayload = items.map(item => ({
-        product_id: item.productId || null,
+        product_id: normalizeUuid(item.productId),
         product_name: item.productName,
         pricing_mode: item.pricingMode || 'UNIT',
         quantity: item.quantity,
@@ -368,7 +369,7 @@ export class QuoteRepository {
         material_name: item.materialName || null,
         notes: item.notes || null,
         finishings: (item.finishings || []).map(f => ({
-          finishing_id: f.finishingId || null,
+          finishing_id: normalizeUuid(f.finishingId),
           name: f.name,
           pricing_basis: f.pricingBasis || 'FIXED',
           price_status: f.priceStatus || 'CONFIGURED',

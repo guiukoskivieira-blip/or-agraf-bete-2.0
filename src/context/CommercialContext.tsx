@@ -47,6 +47,7 @@ import {
 import { quoteRepository } from '../repositories/quote.repository';
 import { productRepository } from '../repositories/product.repository';
 import { isModeConnected, isSupabaseConfigured } from '../services/supabase-client';
+import { normalizeUuid } from '../domain/quote-validation';
 
 export const INITIAL_QUOTES: Quote[] = [
   {
@@ -986,7 +987,7 @@ export const CommercialProvider: React.FC<{ children: ReactNode }> = ({ children
       id: `quot_${Date.now()}`,
       tenantId,
       quoteNumber: quoteNum,
-      customerId: data.customerId || `cust_${Date.now()}`,
+      customerId: normalizeUuid(data.customerId) || (data.customerId && !data.customerId.startsWith('cust_') ? data.customerId : ''),
       customerName: data.customerName || 'Cliente Balcão',
       customerContact: data.customerContact,
       customerDocument: data.customerDocument,

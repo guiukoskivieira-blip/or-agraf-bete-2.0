@@ -192,3 +192,15 @@ export function validateQuoteForm(params: QuoteFormValidationParams): QuoteFormV
     sanitizedItems,
   };
 }
+
+/**
+ * Normaliza identificadores de entidades para PostgreSQL UUID.
+ * Se o ID for sintético/temporário (ex: cust_..., temp_..., local_...) ou nulo/indefinido/inválido,
+ * retorna null para preservar a integridade do schema SQL e usar snapshot.
+ */
+export function normalizeUuid(id?: string | null): string | null {
+  if (!id || typeof id !== 'string') return null;
+  const trimmed = id.trim();
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(trimmed) ? trimmed : null;
+}

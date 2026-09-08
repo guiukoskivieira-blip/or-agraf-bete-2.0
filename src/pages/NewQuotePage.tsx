@@ -60,7 +60,7 @@ import { formatCentsToBRL, parseBRLToCents } from '../domain/money';
 import { calculateInstallments } from '../domain/financial-calculations';
 import { calculateItemPricing, inferPricingMode, formatItemPricingDescription } from '../domain/pricing-engine';
 import { isFinishingCompatibleWithProduct } from '../domain/product-catalog';
-import { validateQuoteForm } from '../domain/quote-validation';
+import { validateQuoteForm, normalizeUuid } from '../domain/quote-validation';
 
 interface NewQuotePageProps {
   onBack: () => void;
@@ -965,7 +965,7 @@ export const NewQuotePage: React.FC<NewQuotePageProps> = ({ onBack, onSuccess })
       : null;
 
     createQuote({
-      customerId: selectedCustomerId || undefined,
+      customerId: selectedCustomerId ? normalizeUuid(selectedCustomerId) || undefined : undefined,
       customerName: customerName.trim(),
       customerContact: customerContact.trim() || undefined,
       customerDocument: customerDocument.trim() || undefined,

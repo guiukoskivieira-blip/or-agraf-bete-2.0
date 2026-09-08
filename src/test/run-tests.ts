@@ -13,6 +13,7 @@ import { persistenceIntegrationTests } from './persistence-integration.test';
 import { canonicalPermissionsMatrixTests } from './canonical-permissions-matrix.test';
 import { runQuoteValidationTests } from './quote-validation.test';
 import { runDiscountValidationTests } from './discount-validation.test';
+import { runCustomerIdNormalizationTests } from './customer-id-normalization.test';
 
 async function main() {
   console.log('====================================');
@@ -31,6 +32,7 @@ async function main() {
   const auth = runAuthFoundationTests();
   const quoteValidation = runQuoteValidationTests();
   const discountValidation = runDiscountValidationTests();
+  const customerIdNormalization = runCustomerIdNormalizationTests();
 
   const ssoResults = await Promise.all(
     ssoIntegrationTests.map(async (tc) => {
@@ -81,6 +83,7 @@ async function main() {
     ...auth,
     ...quoteValidation,
     ...discountValidation,
+    ...customerIdNormalization,
     ...ssoResults,
     ...persistenceResults,
     ...matrixResults,
