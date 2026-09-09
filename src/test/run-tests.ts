@@ -17,6 +17,7 @@ import { runCustomerIdNormalizationTests } from './customer-id-normalization.tes
 import { runQuoteDetailsLoadingGuardTests } from './quote-details-loading-guard.test';
 import { runPrexyonGlobalBarProfileTests } from './prexyon-global-bar-profile.test';
 import { runHelpCenterFoundationTests } from './help-center-foundation.test';
+import { runCommissionPersistenceTests } from './commission-persistence.test';
 
 async function main() {
   console.log('====================================');
@@ -39,6 +40,7 @@ async function main() {
   const quoteDetailsLoadingGuard = runQuoteDetailsLoadingGuardTests();
   const globalBarProfile = await runPrexyonGlobalBarProfileTests();
   const helpCenter = runHelpCenterFoundationTests();
+  const commissionPersistence = runCommissionPersistenceTests();
 
   const ssoResults = await Promise.all(
     ssoIntegrationTests.map(async (tc) => {
@@ -96,6 +98,7 @@ async function main() {
     ...ssoResults,
     ...persistenceResults,
     ...matrixResults,
+    ...commissionPersistence,
   ];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;

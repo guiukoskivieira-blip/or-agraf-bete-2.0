@@ -210,6 +210,8 @@ export class QuoteRepository {
         customer_notes: null,
         seller_id: normalizeUuid(quote.sellerId || quote.salespersonId),
         seller_name: quote.sellerName || quote.salespersonName || null,
+        commission_rate_percent: quote.commissionRatePercent ?? null,
+        commission_amount_cents: quote.commissionAmountCents ?? null,
       };
 
       // Monta payload dos itens e acabamentos
