@@ -48,6 +48,22 @@ interface QuoteDetailsPageProps {
   onNavigate?: (tab: string) => void;
 }
 
+export function formatCommissionForDisplay(
+  commissionRatePercent: number | null | undefined,
+  commissionAmountCents: number | null | undefined,
+  totalCents: number
+): string | null {
+  if (commissionRatePercent == null && commissionAmountCents == null) {
+    return null;
+  }
+
+  const displayedAmountCents = commissionAmountCents
+    ?? Math.round(totalCents * (commissionRatePercent as number) / 100);
+  const rateLabel = commissionRatePercent == null ? '' : `${commissionRatePercent}% — `;
+
+  return `${rateLabel}${formatCentsToBRL(displayedAmountCents)}`;
+}
+
 export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onBack, onNavigate }) => {
   const { quotes, approveQuote, rejectQuote, downloadQuotePdf, sendQuoteViaWhatsApp, isLoadingCommercial } = useCommercial();
   const { currentCompany, currentUser } = useTenant();
@@ -145,6 +161,11 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
 
   const meta = QUOTE_STATUS_METADATA[quote.status];
   const discountCents = quote.discount?.appliedAmountCents || quote.discountCents || 0;
+  const commissionDisplay = formatCommissionForDisplay(
+    quote.commissionRatePercent,
+    quote.commissionAmountCents,
+    quote.totalCents
+  );
 
   const handleOpenWhatsApp = () => {
     if (!capabilities.canUseWhatsApp) {
@@ -453,6 +474,11 @@ export const QuoteDetailsPage: React.FC<QuoteDetailsPageProps> = ({ quoteId, onB
               <div className="font-bold text-slate-900 text-sm">
                 {quote.sellerName || quote.salespersonName || 'Vendas Geral'}
               </div>
+              {commissionDisplay && (
+                <div className="text-[11px] font-semibold text-emerald-800">
+                  Comissão: {commissionDisplay}
+                </div>
+              )}
               <div className="text-[11px] text-slate-500">
                 Atendimento Comercial • {currentCompany.tradeName}
               </div>

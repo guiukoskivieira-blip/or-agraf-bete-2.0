@@ -18,6 +18,7 @@ import { runQuoteDetailsLoadingGuardTests } from './quote-details-loading-guard.
 import { runPrexyonGlobalBarProfileTests } from './prexyon-global-bar-profile.test';
 import { runHelpCenterFoundationTests } from './help-center-foundation.test';
 import { runCommissionPersistenceTests } from './commission-persistence.test';
+import { runQuoteDetailsCommissionDisplayTests } from './quote-details-commission-display.test';
 
 async function main() {
   console.log('====================================');
@@ -41,6 +42,7 @@ async function main() {
   const globalBarProfile = await runPrexyonGlobalBarProfileTests();
   const helpCenter = runHelpCenterFoundationTests();
   const commissionPersistence = runCommissionPersistenceTests();
+  const quoteDetailsCommissionDisplay = runQuoteDetailsCommissionDisplayTests();
 
   const ssoResults = await Promise.all(
     ssoIntegrationTests.map(async (tc) => {
@@ -99,6 +101,7 @@ async function main() {
     ...persistenceResults,
     ...matrixResults,
     ...commissionPersistence,
+    ...quoteDetailsCommissionDisplay,
   ];
   const total = results.length;
   const passed = results.filter(result => result.passed).length;
