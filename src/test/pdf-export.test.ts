@@ -366,5 +366,98 @@ export function runPdfExportTests(): TestResult[] {
     'Proposta com múltiplos itens que ultrapassam a página cria páginas adicionais de forma consistente'
   );
 
+  // Hotfix P2: apresentação segura dos dados da empresa, condição e observações
+  const productionQuote: Quote = {
+    ...controlledQuote,
+    quoteNumber: 'ORC-2026-0004',
+    subtotalCents: 25000,
+    discount: {
+      type: 'fixed',
+      value: 2500,
+      appliedAmountCents: 2500,
+      reason: 'Desconto comercial',
+    },
+    discountCents: 2500,
+    totalCents: 22500,
+    paymentTerms: 'in_cash',
+    financialTerms: {
+      ...controlledQuote.financialTerms,
+      paymentCondition: 'in_cash',
+      financialNotes: 'Entregar os arquivos finais em PDF/X-1a.',
+    },
+  };
+
+  const companyWithoutContactData = {
+    ...mockCompany,
+    address: undefined,
+    phone: undefined,
+    whatsapp: undefined,
+    email: undefined,
+  } as unknown as Company;
+  const noAddressPdf = (PdfExportService as any).buildQuotePdfDocument(
+    productionQuote,
+    companyWithoutContactData
+  );
+  const noAddressText = extractPdfText(noAddressPdf);
+  assert(
+    !/undefined|null|NaN/.test(noAddressText),
+    'Empresa sem endereço ou contatos não renderiza undefined, null ou NaN no PDF'
+  );
+
+  const partialAddressCompany = {
+    ...mockCompany,
+    address: {
+      street: 'Rua X',
+      number: '123',
+      complement: '',
+      neighborhood: 'Centro',
+      city: 'Curitiba',
+      state: 'PR',
+      zipCode: undefined,
+    },
+  } as unknown as Company;
+  const partialAddressPdf = (PdfExportService as any).buildQuotePdfDocument(
+    productionQuote,
+    partialAddressCompany
+  );
+  const partialAddressText = extractPdfText(partialAddressPdf);
+  assert(
+    partialAddressText.includes('Rua X, 123 - Centro - Curitiba/PR') &&
+      !partialAddressText.includes('CEP: undefined'),
+    'Endereço parcial renderiza somente os campos válidos'
+  );
+
+  const productionPdf = (PdfExportService as any).buildQuotePdfDocument(productionQuote, mockCompany);
+  const productionPdfText = extractPdfText(productionPdf);
+  assert(
+    productionPdfText.includes('Condições de Pagamento: À vista'),
+    'Condição in_cash é apresentada como À vista'
+  );
+  assert(
+    !productionPdfText.includes('in_cash'),
+    'PDF não contém a string técnica literal in_cash'
+  );
+  assert(
+    productionPdfText.includes('Entregar os arquivos finais em PDF/X-1a.'),
+    'Observação legítima da quote permanece no PDF'
+  );
+
+  const notesStart = productionPdfText.indexOf('OBSERVAÇÕES E NOTAS:');
+  const notesSection = notesStart >= 0 ? productionPdfText.slice(notesStart) : '';
+  assert(
+    notesStart >= 0 && !notesSection.includes('Condições de Pagamento') && !notesSection.includes('in_cash'),
+    'Condição de pagamento não é duplicada em observações'
+  );
+
+  assert(
+    productionQuote.subtotalCents === 25000 &&
+      productionQuote.discountCents === 2500 &&
+      productionQuote.totalCents === 22500 &&
+      productionPdfText.includes('R$ 250,00') &&
+      productionPdfText.includes('- R$ 25,00') &&
+      productionPdfText.includes('R$ 225,00'),
+    'Subtotal, desconto e total permanecem 25000, 2500 e 22500'
+  );
+
   return results;
 }

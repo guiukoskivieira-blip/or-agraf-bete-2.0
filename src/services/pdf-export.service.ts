@@ -21,6 +21,78 @@ import { Company } from '../types/tenant';
 import { formatCentsToBRL } from '../domain/money';
 import { inferPricingMode } from '../domain/pricing-engine';
 
+const PAYMENT_CONDITION_PRESENTATION: Record<string, string> = {
+  in_cash: 'À vista',
+  down_payment_and_balance: 'Entrada + saldo',
+  installments: 'Parcelado',
+  to_be_defined: 'A combinar',
+};
+
+function validPresentationText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text || /^(undefined|null|nan)$/i.test(text)) return null;
+  return text;
+}
+
+export function buildCompanyAddressLine(company: Company): string | null {
+  const address = company.address as unknown as Record<string, unknown> | null | undefined;
+  if (!address) return null;
+
+  const street = validPresentationText(address.street);
+  const number = validPresentationText(address.number);
+  const complement = validPresentationText(address.complement);
+  const neighborhood = validPresentationText(address.neighborhood);
+  const city = validPresentationText(address.city);
+  const state = validPresentationText(address.state);
+  const zipCode = validPresentationText(address.zipCode);
+
+  const parts: string[] = [];
+  const streetAndNumber = [street, number].filter(Boolean).join(', ');
+  if (streetAndNumber) parts.push(streetAndNumber);
+  if (complement) parts.push(complement);
+  if (neighborhood) parts.push(neighborhood);
+
+  const location = city && state ? `${city}/${state}` : city || state;
+  if (location) parts.push(location);
+
+  const addressLine = parts.join(' - ');
+  if (zipCode) return addressLine ? `${addressLine} • CEP: ${zipCode}` : `CEP: ${zipCode}`;
+  return addressLine || null;
+}
+
+export function buildCompanyContactLine(company: Company): string | null {
+  const contacts = [
+    ['Tel', validPresentationText(company.phone)],
+    ['WhatsApp', validPresentationText(company.whatsapp)],
+    ['E-mail', validPresentationText(company.email)],
+  ]
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([label, value]) => `${label}: ${value}`);
+
+  return contacts.length > 0 ? contacts.join(' • ') : null;
+}
+
+export function resolvePaymentTermsForPdf(quote: Quote, company: Company): string {
+  const quotePaymentTerms = validPresentationText(quote.paymentTerms);
+  if (quotePaymentTerms && PAYMENT_CONDITION_PRESENTATION[quotePaymentTerms]) {
+    return PAYMENT_CONDITION_PRESENTATION[quotePaymentTerms];
+  }
+  if (quotePaymentTerms) return quotePaymentTerms;
+
+  const condition = validPresentationText(quote.financialTerms?.paymentCondition);
+  if (condition && PAYMENT_CONDITION_PRESENTATION[condition]) {
+    return PAYMENT_CONDITION_PRESENTATION[condition];
+  }
+
+  return validPresentationText(company.customization?.defaultPaymentTerms) || 'A combinar';
+}
+
+export function resolveQuoteNotesForPdf(quote: Quote, company: Company): string | null {
+  return validPresentationText(quote.financialTerms?.financialNotes)
+    || validPresentationText(company.customization?.commercialNotes);
+}
+
 export class PdfExportService {
   /**
    * Sanitiza strings para nomes de arquivo seguros no sistema de arquivos
@@ -129,19 +201,20 @@ export class PdfExportService {
     currentY += 4.5;
 
     // Endereço e Contatos da Gráfica
-    const addr = company.address;
-    const addressStr = addr
-      ? `${addr.street}, ${addr.number}${addr.complement ? ' - ' + addr.complement : ''}, ${addr.neighborhood} - ${addr.city}/${addr.state} • CEP: ${addr.zipCode}`
-      : 'Endereço Comercial da Gráfica';
-    doc.text(addressStr, margin, currentY);
-
-    currentY += 4.5;
+    const addressStr = buildCompanyAddressLine(company);
+    if (addressStr) {
+      doc.text(addressStr, margin, currentY);
+      currentY += 4.5;
+    }
 
     // Contatos: Telefone / WhatsApp / E-mail
-    const contactStr = `Tel: ${company.phone || '-'} • WhatsApp: ${company.whatsapp || company.phone || '-'} • E-mail: ${company.email || '-'}`;
-    doc.text(contactStr, margin, currentY);
+    const contactStr = buildCompanyContactLine(company);
+    if (contactStr) {
+      doc.text(contactStr, margin, currentY);
+      currentY += 4.5;
+    }
 
-    currentY += 6;
+    currentY += 1.5;
 
     // Linha divisória sutil
     doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
@@ -338,7 +411,7 @@ export class PdfExportService {
     doc.text(`  (Contados a partir da aprovação da arte e confirmação)`, margin + 4, currentY + 16);
 
     // Condição de pagamento textual
-    const paymentTerms = quote.paymentTerms || company.customization?.defaultPaymentTerms || 'À vista na aprovação / retirada';
+    const paymentTerms = resolvePaymentTermsForPdf(quote, company);
     const splitPaymentLines = doc.splitTextToSize(`• Condições de Pagamento: ${paymentTerms}`, boxWidth - 8);
     doc.text(splitPaymentLines, margin + 4, currentY + 22);
 
@@ -404,27 +477,29 @@ export class PdfExportService {
     // ============================================================
     // 5. OBSERVAÇÕES COMERCIAIS & NOTA DE APROVAÇÃO
     // ============================================================
-    const notes = quote.paymentTerms || company.customization?.commercialNotes || 'Trabalhos impressos com alta precisão e calibração de cor.';
-    const splitNotes = doc.splitTextToSize(notes, contentWidth);
-    const notesBlockHeight = 4 + splitNotes.length * 3.8 + 4;
+    const notes = resolveQuoteNotesForPdf(quote, company);
+    if (notes) {
+      const splitNotes = doc.splitTextToSize(notes, contentWidth);
+      const notesBlockHeight = 4 + splitNotes.length * 3.8 + 4;
 
-    // Cria nova página apenas se o bloco completo de observações não couber antes do rodapé
-    if (currentY + notesBlockHeight > safePageBottom) {
-      doc.addPage();
-      currentY = margin + 5;
+      // Cria nova página apenas se o bloco completo de observações não couber antes do rodapé
+      if (currentY + notesBlockHeight > safePageBottom) {
+        doc.addPage();
+        currentY = margin + 5;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
+      doc.text('OBSERVAÇÕES E NOTAS:', margin, currentY);
+      currentY += 4;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
+      doc.text(splitNotes, margin, currentY);
+      currentY += splitNotes.length * 3.8 + 4;
     }
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
-    doc.text('OBSERVAÇÕES E NOTAS:', margin, currentY);
-    currentY += 4;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
-    doc.text(splitNotes, margin, currentY);
-    currentY += splitNotes.length * 3.8 + 4;
 
     // ============================================================
     // 6. RODAPÉ DE PÁGINA (GARANTIA, ASSINATURA E NUMERAÇÃO)
